@@ -2,17 +2,12 @@
 #include "STM32AudioSAI.h"
 #include "STM32DriverH743.h"
 
-// DMA transfer complete flag (set in driver-specific DMA interrupt handler)
-volatile bool dmaTransferComplete = false;
+// DMA transfer complete flags (set in driver-specific DMA interrupt handler)
+volatile bool dmaTxTransferComplete = false;
+volatile bool dmaRxTransferComplete = false;
 DoubleBuffer txBuf;
 DoubleBuffer rxBuf;
 
-void handleDMATxComplete() {
-  // Called from DMA complete callback (internal, not user)
-}
-void handleDMARxComplete() {
-  // Called from DMA RX complete callback (internal, not user)
-}
 // Board config and driver instance are now provided by the board-specific header
 bool STM32AudioSAI::begin() {
   if (!configureGPIO()) {
@@ -171,7 +166,7 @@ int8_t STM32AudioSAI::getPinPort(PinId id) const { return pins[id].port; }
 int8_t STM32AudioSAI::getPinNumber(PinId id) const { return pins[id].pin; }
 int8_t STM32AudioSAI::getPinAF(PinId id) const { return pins[id].af; }
 bool STM32AudioSAI::isDMATransferComplete() const {
-  return dmaTransferComplete;
+  return dmaRxTransferComplete && dmaTxTransferComplete;
 }
 void STM32AudioSAI::initSAI() { driver.initSAI(this); }
 void STM32AudioSAI::deinitSAI() { driver.deinitSAI(); }

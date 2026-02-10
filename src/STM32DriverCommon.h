@@ -93,18 +93,18 @@ public:
   }
 
   size_t read(STM32AudioSAI* audio, void* buffer, size_t size) {
-    dmaTransferComplete = false;
+    dmaRxTransferComplete = false;
     if (HAL_SAI_Receive_DMA(&hsai_a, (uint8_t*)buffer,
                             size / (audio->getBitsPerSample() / 8)) != HAL_OK) {
       Logger::instance().error("HAL_SAI_Receive_DMA failed");
       return 0;
     }
     uint32_t start = millis();
-    return dmaTransferComplete ? size : 0;
+    return dmaRxTransferComplete ? size : 0;
   }
 
   size_t write(STM32AudioSAI* audio, const void* buffer, size_t size) {
-    dmaTransferComplete = false;
+    dmaTxTransferComplete = false;
     if (HAL_SAI_Transmit_DMA(&hsai_a, (uint8_t*)buffer,
                              size / (audio->getBitsPerSample() / 8)) != HAL_OK) {
       Logger::instance().error("HAL_SAI_Transmit_DMA failed");
@@ -112,8 +112,8 @@ public:
     }
     uint32_t start = millis();
     uint32_t timeout = audio->getIOTimoutMs();
-    while (!dmaTransferComplete && (millis() - start < timeout));
-    return dmaTransferComplete ? size : 0;
+    while (!dmaTxTransferComplete && (millis() - start < timeout));
+    return dmaTxTransferComplete ? size : 0;
   }
 
   bool isRunning() {

@@ -6,9 +6,8 @@
 using sai_pin_t = int16_t;  // Use int16_t to allow -1 for "use default"
 
 // Optional user callback for DMA transfer complete
-extern volatile bool dmaTransferComplete;
-extern void handleDMATxComplete();
-extern void handleDMARxComplete();
+extern volatile bool dmaTxTransferComplete;
+extern volatile bool dmaRxTransferComplete;
 
 // Generic double buffer utility for DMA
 class DoubleBuffer {

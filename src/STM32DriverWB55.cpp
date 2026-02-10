@@ -7,8 +7,7 @@
 extern "C" void DMA1_Channel1_IRQHandler(void) {
   if (DMA1->ISR & DMA_ISR_TCIF1) {
     DMA1->IFCR = DMA_IFCR_CTCIF1;  // Clear transfer complete flag
-    handleDMATxComplete();
-    dmaTransferComplete = true;
+    dmaTxTransferComplete = true;
   }
 }
 
@@ -16,8 +15,7 @@ extern "C" void DMA1_Channel1_IRQHandler(void) {
 extern "C" void DMA1_Channel2_IRQHandler(void) {
   if (DMA1->ISR & DMA_ISR_TCIF2) {
     DMA1->IFCR = DMA_IFCR_CTCIF2;  // Clear transfer complete flag
-    handleDMARxComplete();
-    dmaTransferComplete = true;
+    dmaRxTransferComplete = true;
   }
 }
 

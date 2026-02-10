@@ -1,4 +1,3 @@
-
 #include "STM32AudioSAI.h"
 #include "stm32h7xx_hal.h"
 #include "stm32h7xx_hal_sai.h"
@@ -18,13 +17,11 @@ extern "C" void DMA2_Stream0_IRQHandler(void) {
 
 // HAL DMA callbacks (called by HAL_DMA_IRQHandler)
 void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai) {
-  handleDMATxComplete();
-  dmaTransferComplete = true;
+  dmaTxTransferComplete = true;
 }
 
 void HAL_SAI_RxCpltCallback(SAI_HandleTypeDef *hsai) {
-  handleDMARxComplete();
-  dmaTransferComplete = true;
+  dmaRxTransferComplete = true;
 }
 
 #endif
