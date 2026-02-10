@@ -115,7 +115,7 @@ class STM32AudioSAI : public Stream {
   void end();
   /// Read audio data (blocking or non-blocking)
   size_t readBytes(uint8_t* buffer, size_t size);
-  /// Write audio data (blocking or non-blocking, double buffered, accumulates
+  /// Write audio data (blocking or non-blocking, single buffer, accumulates
   /// until 1024 bytes)
   int read() override;
   /// not implemented

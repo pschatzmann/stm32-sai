@@ -45,9 +45,9 @@ bool STM32AudioSAI::begin() {
 }
 
 void STM32AudioSAI::end() { deinitSAI(); }
-int STM32AudioSAI::available()  { return rxBuf.getFillLevel(); }
+int STM32AudioSAI::available() { return rxBuf.getFillLevel(); }
 /// Returns the number of bytes available for writing to the TX buffer
-int STM32AudioSAI::availableForWrite()  {
+int STM32AudioSAI::availableForWrite() {
   return txBuf.getBufferSize() - txBuf.getFillLevel();
 }
 // Stream single-byte read implementation
@@ -59,9 +59,7 @@ int STM32AudioSAI::read() {
 }
 
 // Stream single-byte write implementation
-size_t STM32AudioSAI::write(uint8_t b) {
-  return write(&b, 1);
-}
+size_t STM32AudioSAI::write(uint8_t b) { return write(&b, 1); }
 
 // Double-buffered write implementation
 size_t STM32AudioSAI::write(const uint8_t* buffer, size_t size) {
@@ -93,8 +91,7 @@ size_t STM32AudioSAI::write(const uint8_t* buffer, size_t size) {
       if (!txBuf.isDMARunning()) {
         txBuf.setDMARunning(true);
         txBuf.setBufferReady(txBuf.getActiveBufferIndex(), false);
-        driver.write(this, txBuf.getActiveBuffer(), txBuf.getInactiveBuffer(),
-                     txBuf.getBufferSize() * 2);
+        driver.write(this, txBuf.getActiveBuffer(), txBuf.getBufferSize() * 2);
       }
       // Switch to the other buffer for the next write
       bufIdx = (txBuf.getActiveBufferIndex() == 0) ? 1 : 0;
@@ -120,8 +117,7 @@ void STM32AudioSAI::flush() {
     if (!txBuf.isDMARunning()) {
       txBuf.setDMARunning(true);
       txBuf.setBufferReady(txBuf.getActiveBufferIndex(), false);
-      driver.write(this, txBuf.getActiveBuffer(), txBuf.getInactiveBuffer(),
-                   txBuf.getBufferSize() * 2);
+      driver.write(this, txBuf.getActiveBuffer(), txBuf.getBufferSize() * 2);
     }
   }
 }
@@ -158,8 +154,7 @@ size_t STM32AudioSAI::readBytes(uint8_t* buffer, size_t size) {
       if (!rxBuf.isDMARunning()) {
         rxBuf.setDMARunning(true);
         rxBuf.setBufferReady(rxBuf.getActiveBufferIndex(), false);
-        driver.read(this, rxBuf.getActiveBuffer(), rxBuf.getInactiveBuffer(),
-                    rxBuf.getBufferSize() * 2);
+        driver.read(this, rxBuf.getActiveBuffer(), rxBuf.getBufferSize() * 2);
       }
       // Switch to the other buffer for the next read
       bufIdx = (rxBuf.getActiveBufferIndex() == 0) ? 1 : 0;

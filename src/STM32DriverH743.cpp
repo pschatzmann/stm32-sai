@@ -1,25 +1,30 @@
+
 #include "STM32AudioSAI.h"
+#include "stm32h7xx_hal.h"
+#include "stm32h7xx_hal_sai.h"
+#include "stm32h7xx_hal_dma.h"
 
-// DMA Interrupt Handler Integration Example
+
+// DMA Interrupt Handler Integration Example using STM32 HAL
 #if defined(STM32H743xx)
 
-#if defined(STM32H743xx)
+// Global DMA handle for SAI1 Block A (needed for HAL IRQ handler)
+DMA_HandleTypeDef hdma_sai_a;
+
 // TX DMA IRQ
 extern "C" void DMA2_Stream0_IRQHandler(void) {
-  if (DMA2->LISR & DMA_LISR_TCIF0) {
-    DMA2->LIFCR = DMA_LIFCR_CTCIF0;  // Clear transfer complete flag
+  HAL_DMA_IRQHandler(&hdma_sai_a);
+}
+
+// HAL DMA callbacks (called by HAL_DMA_IRQHandler)
+void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai) {
   handleDMATxComplete();
   dmaTransferComplete = true;
-  }
 }
-// RX DMA IRQ (true double buffer)
-extern "C" void DMA2_Stream1_IRQHandler(void) {
-  if (DMA2->LISR & DMA_LISR_TCIF1) {
-    DMA2->LIFCR = DMA_LIFCR_CTCIF1;  // Clear transfer complete flag
-    extern STM32AudioSAI SAI;
-    handleDMARxComplete();
-    dmaTransferComplete = true;
-  }
+
+void HAL_SAI_RxCpltCallback(SAI_HandleTypeDef *hsai) {
+  handleDMARxComplete();
+  dmaTransferComplete = true;
 }
-#endif
+
 #endif
