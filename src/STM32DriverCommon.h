@@ -139,7 +139,9 @@ public:
       case 48000:  return SAI_AUDIO_FREQUENCY_48K;
       case 96000:  return SAI_AUDIO_FREQUENCY_96K;
       case 192000: return SAI_AUDIO_FREQUENCY_192K;
-      default:     return SAI_AUDIO_FREQUENCY_48K; // fallback
+      default:
+        Logger::instance().errorf("Unsupported sample rate: %u, using 44.1kHz fallback", rate);
+        return SAI_AUDIO_FREQUENCY_44K; // fallback
     }
   }
 
@@ -152,7 +154,9 @@ public:
       case 20: return SAI_DATASIZE_20;
       case 24: return SAI_DATASIZE_24;
       case 32: return SAI_DATASIZE_32;
-      default: return SAI_DATASIZE_16; // fallback
+      default:
+        Logger::instance().errorf("Unsupported data size: %u, using 16-bit fallback", bits);
+        return SAI_DATASIZE_16; // fallback
     }
   }
 };
