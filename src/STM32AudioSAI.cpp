@@ -1,9 +1,9 @@
 #include "STM32AudioSAI.h"
 
 #ifdef STM32H743xx
-#  include "STM32DriverH743.h"
+#include "STM32DriverH743.h"
 #elif defined(STM32WB55xx)
-#  include "STM32DriverWB55.h"
+#include "STM32DriverWB55.h"
 #endif
 
 // DMA transfer complete flags (set in driver-specific DMA interrupt handler)
@@ -24,8 +24,9 @@ bool STM32AudioSAI::begin() {
   size_t dmaBlockSize = txBuffer.getBufferSize() / frameSize * frameSize;
   txBuffer.resize(dmaBlockSize);
 
-  initSAI();
-  initDMA();
+  if (!initSAI()) return false;
+  if (!initDMA()) return false;
+  
   return isRunning();
 }
 
@@ -109,9 +110,9 @@ int8_t STM32AudioSAI::getPinAF(PinId id) const { return pins[id].af; }
 bool STM32AudioSAI::isDMATransferComplete() const {
   return dmaRxTransferComplete && dmaTxTransferComplete;
 }
-void STM32AudioSAI::initSAI() { driver.initSAI(this); }
+bool STM32AudioSAI::initSAI() { return driver.initSAI(this); }
 void STM32AudioSAI::deinitSAI() { driver.deinitSAI(); }
-void STM32AudioSAI::initDMA() { driver.initDMA(this); }
+bool STM32AudioSAI::initDMA() { return driver.initDMA(this); }
 void STM32AudioSAI::deinitDMA() { driver.deinitDMA(); }
 bool STM32AudioSAI::configureGPIO() { return driver.configureGPIO(this); }
 

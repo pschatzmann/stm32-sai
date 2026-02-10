@@ -122,6 +122,7 @@ class STM32AudioSAI : public Stream {
   int peek() override { return -1; }
   // Write single byte via buffer
   size_t write(uint8_t b) override;
+  /// Write multiple bytes via buffer
   size_t write(const uint8_t* buffer, size_t size);
   /// Flush any partially filled buffer to DMA (pads with zeros if needed)
   void flush();
@@ -129,8 +130,6 @@ class STM32AudioSAI : public Stream {
   int available() override;
   /// Returns the number of bytes available for writing to the TX buffer
   int availableForWrite() override;
-  Buffer txBuffer{512};
-  Buffer rxBuffer{2048};
   /// Get pin configuration for a SAI signal
   PinConfig getPinConfig(PinId id) const { return pins[id]; }
   /// Set audio sample rate
@@ -188,10 +187,12 @@ class STM32AudioSAI : public Stream {
   uint8_t channels = 2;
   uint32_t ioTimeoutMs = 1000;  ///< IO timeout in milliseconds
   PinConfig pins[NumPins];
+  Buffer txBuffer{512}; 
+  Buffer rxBuffer{2048};
 
-  void initSAI();
+  bool initSAI();
   void deinitSAI();
-  void initDMA();
+  bool initDMA();
   void deinitDMA();
   bool configureGPIO();
 };

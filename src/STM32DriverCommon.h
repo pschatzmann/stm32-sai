@@ -17,7 +17,7 @@ public:
 
   STM32SAIDriver(const STM32SAIDriverConfig& cfg) : config(cfg) {}
 
-  void initSAI(STM32AudioSAI* audio) {
+  bool initSAI(STM32AudioSAI* audio) {
     __HAL_RCC_SAI1_CLK_ENABLE();
     hsai_a.Instance = SAI1_Block_A;
     hsai_a.Init.AudioMode = audio->isMaster() ? SAI_MODEMASTER_TX : SAI_MODESLAVE_RX;
@@ -46,7 +46,9 @@ public:
 
     if (HAL_SAI_Init(&hsai_a) != HAL_OK) {
       Logger::instance().error("HAL_SAI_Init failed");
+      return false;
     }
+    return true;
   }
 
   void deinitSAI() {
@@ -56,7 +58,7 @@ public:
     __HAL_RCC_SAI1_CLK_DISABLE();
   }
 
-  void initDMA(STM32AudioSAI* audio) {
+  bool initDMA(STM32AudioSAI* audio) {
     hdma_sai_a.Instance = (decltype(hdma_sai_a.Instance))config.dma_instance;
     hdma_sai_a.Init.Request = config.dma_request;
     hdma_sai_a.Init.Direction = DMA_MEMORY_TO_PERIPH;
@@ -66,13 +68,15 @@ public:
     hdma_sai_a.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
     hdma_sai_a.Init.Mode = DMA_CIRCULAR;
     hdma_sai_a.Init.Priority = DMA_PRIORITY_HIGH;
-  #ifdef DMA_FIFOMODE_DISABLE
-  hdma_sai_a.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-  #endif
+    #ifdef DMA_FIFOMODE_DISABLE
+    hdma_sai_a.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    #endif
     if (HAL_DMA_Init(&hdma_sai_a) != HAL_OK) {
       Logger::instance().error("HAL_DMA_Init failed");
+      return false;
     }
     __HAL_LINKDMA(&hsai_a, hdmatx, hdma_sai_a);
+    return true;
   }
 
   void deinitDMA() {
