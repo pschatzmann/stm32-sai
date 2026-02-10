@@ -1,31 +1,34 @@
-// Only include the board config/driver for your target
 #include "STM32AudioSAI.h"
 #include "STM32DriverH743.h"
 
 // DMA transfer complete flags (set in driver-specific DMA interrupt handler)
 volatile bool dmaTxTransferComplete = false;
 volatile bool dmaRxTransferComplete = false;
-DoubleBuffer txBuf;
-DoubleBuffer rxBuf;
+// RingBuffer instances are now members of STM32AudioSAI
 
-// Board config and driver instance are now provided by the board-specific header
+// Board config and driver instance are now provided by the board-specific
+// header
 bool STM32AudioSAI::begin() {
   if (!configureGPIO()) {
     Logger::instance().error("GPIO configuration failed");
     return false;
   }
+  // setup tx buffer with consistent block size for DMA writes based on buffer
+  // ensure block size is a multiple of frame size
+  int frameSize = channels * (bitsPerSample / 8);
+  size_t dmaBlockSize = txBuffer.getBufferSize() / frameSize * frameSize;
+  txBuffer.resize(dmaBlockSize);
+
   initSAI();
   initDMA();
   return isRunning();
 }
 
 void STM32AudioSAI::end() { deinitSAI(); }
-int STM32AudioSAI::available() { return rxBuf.getFillLevel(); }
-/// Returns the number of bytes available for writing to the TX buffer
-int STM32AudioSAI::availableForWrite() {
-  return txBuf.getBufferSize() - txBuf.getFillLevel();
-}
-// Stream single-byte read implementation
+
+int STM32AudioSAI::available() { return rxBuffer.available(); }
+int STM32AudioSAI::availableForWrite() { return txBuffer.availableForWrite(); }
+
 int STM32AudioSAI::read() {
   uint8_t b;
   size_t n = readBytes(&b, 1);
@@ -33,109 +36,42 @@ int STM32AudioSAI::read() {
   return -1;
 }
 
-// Stream single-byte write implementation
-size_t STM32AudioSAI::write(uint8_t b) { return write(&b, 1); }
+size_t STM32AudioSAI::write(uint8_t b) {
+  if (!txBuffer.write(b)) return 0;
+  if (txBuffer.isFull()) {
+    driver.write(this, txBuffer.data(), txBuffer.available());
+    txBuffer.clear();
+  }
+  return 1;
+}
 
-// Double-buffered write implementation
 size_t STM32AudioSAI::write(const uint8_t* buffer, size_t size) {
   size_t written = 0;
-  // bufIdx: index of the inactive buffer (the one not being sent by DMA)
-  int bufIdx = (txBuf.getActiveBufferIndex() == 0) ? 1 : 0;
-  uint32_t start = millis();
-  while (written < size) {
-    // Wait until the inactive buffer is ready to be written to
-    while (!txBuf.isBufferReady(bufIdx)) {
-      if (ioTimeoutMs == 0) return written;  // No wait: return immediately
-      if ((millis() - start) > ioTimeoutMs)
-        return written;  // Timeout: return partial
-      yield();
-    }
-    // Calculate available space in the inactive buffer
-    size_t space = txBuf.getBufferSize() - txBuf.getFillLevel();
-    // Copy as much as possible to the buffer
-    size_t toCopy = min(space, size - written);
-    memcpy(txBuf.getInactiveBuffer() + txBuf.getFillLevel(),
-           (const uint8_t*)buffer + written, toCopy);
-    txBuf.setFillLevel(txBuf.getFillLevel() + toCopy);
-    written += toCopy;
-    // If the buffer is now full, mark it as not ready and reset fill level
-    if (txBuf.getFillLevel() == txBuf.getBufferSize()) {
-      txBuf.setBufferReady(bufIdx, false);
-      txBuf.setFillLevel(0);
-      // If DMA is not running, start a new DMA transfer for both buffers
-      if (!txBuf.isDMARunning()) {
-        txBuf.setDMARunning(true);
-        txBuf.setBufferReady(txBuf.getActiveBufferIndex(), false);
-        driver.write(this, txBuf.getActiveBuffer(), txBuf.getBufferSize() * 2);
-      }
-      // Switch to the other buffer for the next write
-      bufIdx = (txBuf.getActiveBufferIndex() == 0) ? 1 : 0;
-    }
+  for (int i = 0; i < size; ++i) {
+    written += write(buffer[i]);
   }
   return written;
 }
 
-// Flush any partially filled buffer by zero-padding and sending it via DMA
 void STM32AudioSAI::flush() {
-  // bufIdx: index of the inactive buffer (the one not being sent by DMA)
-  int bufIdx = (txBuf.getActiveBufferIndex() == 0) ? 1 : 0;
-  // Only flush if there is data in the buffer and it is ready
-  if (txBuf.getFillLevel() > 0 && txBuf.isBufferReady(bufIdx)) {
-    // Zero-pad the remainder of the buffer to ensure full buffer size
-    memset(txBuf.getInactiveBuffer() + txBuf.getFillLevel(), 0,
-           txBuf.getBufferSize() - txBuf.getFillLevel());
-    // Mark the buffer as not ready (so it can't be written to)
-    txBuf.setBufferReady(bufIdx, false);
-    // Reset fill level for next use
-    txBuf.setFillLevel(0);
-    // If DMA is not running, start a new DMA transfer for both buffers
-    if (!txBuf.isDMARunning()) {
-      txBuf.setDMARunning(true);
-      txBuf.setBufferReady(txBuf.getActiveBufferIndex(), false);
-      driver.write(this, txBuf.getActiveBuffer(), txBuf.getBufferSize() * 2);
-    }
+  // Send any remaining data via DMA, zero-pad if needed
+  if (txBuffer.available() > 0) {
+    driver.write(this, txBuffer.data(), txBuffer.available());
+    txBuffer.clear();
   }
 }
 
-// Double-buffered read implementation
 size_t STM32AudioSAI::readBytes(uint8_t* buffer, size_t size) {
-  size_t read = 0;
-  // bufIdx: index of the inactive buffer (the one not being filled by DMA)
-  int bufIdx = (rxBuf.getActiveBufferIndex() == 0) ? 1 : 0;
-  uint32_t start = millis();
-  while (read < size) {
-    // Wait until the inactive buffer is ready to be read from
-    while (!rxBuf.isBufferReady(bufIdx)) {
-      if (ioTimeoutMs == 0) return read;  // No wait: return immediately
-      if ((millis() - start) > ioTimeoutMs)
-        return read;  // Timeout: return partial
-      yield();
-    }
-    // Determine how much data is available in the buffer
-    size_t available = rxBuf.getFillLevel();
-    // Copy as much as possible to the output buffer
-    size_t toCopy = min(available, size - read);
-    memcpy((uint8_t*)buffer + read, rxBuf.getInactiveBuffer(), toCopy);
-    // If only part of the buffer was read, move remaining data to the front
-    if (toCopy < available) {
-      memmove(rxBuf.getInactiveBuffer(), rxBuf.getInactiveBuffer() + toCopy,
-              available - toCopy);
-    }
-    rxBuf.setFillLevel(available - toCopy);
-    read += toCopy;
-    // If buffer is now empty, mark as not ready and trigger DMA to refill
-    if (rxBuf.getFillLevel() == 0) {
-      rxBuf.setBufferReady(bufIdx, false);
-      if (!rxBuf.isDMARunning()) {
-        rxBuf.setDMARunning(true);
-        rxBuf.setBufferReady(rxBuf.getActiveBufferIndex(), false);
-        driver.read(this, rxBuf.getActiveBuffer(), rxBuf.getBufferSize() * 2);
-      }
-      // Switch to the other buffer for the next read
-      bufIdx = (rxBuf.getActiveBufferIndex() == 0) ? 1 : 0;
-    }
+  // use consistent block size for DMA reads based on buffer size, channels, and
+  // bits per sample
+  size_t dmaBlockSize =
+      rxBuffer.getBufferSize() / 4 * channels * (bitsPerSample / 8);
+  while (rxBuffer.availableForWrite() >= dmaBlockSize) {
+    driver.read(this, (void*)(rxBuffer.data() + rxBuffer.available()),
+                dmaBlockSize);
+    rxBuffer.advanceWriteIndex(dmaBlockSize);
   }
-  return read;
+  return rxBuffer.readBytes(buffer, size);
 }
 
 void STM32AudioSAI::setSampleRate(uint32_t rate) { sampleRate = rate; }

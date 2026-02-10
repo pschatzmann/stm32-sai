@@ -9,47 +9,48 @@ using sai_pin_t = int16_t;  // Use int16_t to allow -1 for "use default"
 extern volatile bool dmaTxTransferComplete;
 extern volatile bool dmaRxTransferComplete;
 
-// Generic double buffer utility for DMA
-class DoubleBuffer {
+// Generic buffer to support consistent read/write operations
+class Buffer {
  public:
-  DoubleBuffer(size_t sz = 1024)
-      : bufferSize(sz),
-        bufferA(sz),
-        bufferB(sz),
-        activeBuffer(0),
-        fillLevel(0) {
-    bufferReady[0] = bufferReady[1] = true;
-    dmaRunning = false;
-  }
+  Buffer(size_t sz = 1024) : buffer(sz), bufferSize(sz), count(0) {}
 
   void resize(size_t sz) {
+    buffer.resize(sz);
     bufferSize = sz;
-    bufferA.resize(sz);
-    bufferB.resize(sz);
-    fillLevel = 0;
+    count = 0;
   }
-  void swap() { activeBuffer = (activeBuffer == 0) ? 1 : 0; }
-  uint8_t* getActiveBuffer() { return (activeBuffer == 0) ? bufferA.data() : bufferB.data(); }
-  uint8_t* getInactiveBuffer() {
-    return (activeBuffer == 0) ? bufferB.data() : bufferA.data();
+
+  bool write(const uint8_t data) {
+    if (count < bufferSize) {
+      buffer[count] = data;
+      ++count;
+      return true;
+    }
+    return false;
   }
+
+  size_t readBytes(uint8_t* outBuffer, size_t size) {
+    size_t toRead = min(size, count);
+    memcpy(outBuffer, buffer.data(), toRead);
+    memmove(buffer.data(), buffer.data() + toRead, count - toRead);
+    count -= toRead;
+    return toRead;
+  }
+
+  const uint8_t* data() { return buffer.data(); }
+
+  size_t available() const { return count; }
+  size_t availableForWrite() const { return bufferSize - count; }
   size_t getBufferSize() const { return bufferSize; }
-  size_t getFillLevel() const { return fillLevel; }
-  void setFillLevel(size_t v) { fillLevel = v; }
-  bool isBufferReady(int idx) const { return bufferReady[idx]; }
-  void setBufferReady(int idx, bool v) { bufferReady[idx] = v; }
-  int getActiveBufferIndex() const { return activeBuffer; }
-  bool isDMARunning() const { return dmaRunning; }
-  void setDMARunning(bool v) { dmaRunning = v; }
+  bool isFull() const { return count >= bufferSize; }
+  bool isEmpty() const { return count == 0; }
+  void clear() { count = 0; }
+  void advanceWriteIndex(size_t n) { count += n; }
 
  private:
+  std::vector<uint8_t> buffer;
   size_t bufferSize;
-  std::vector<uint8_t> bufferA;
-  std::vector<uint8_t> bufferB;
-  volatile int activeBuffer;
-  size_t fillLevel;
-  volatile bool bufferReady[2];
-  volatile bool dmaRunning;
+  size_t count;
 };
 
 /**
@@ -120,14 +121,16 @@ class STM32AudioSAI : public Stream {
   /// not implemented
   int peek() override { return -1; }
   // Write single byte via buffer
-  size_t write(uint8_t b) override ;
+  size_t write(uint8_t b) override;
   size_t write(const uint8_t* buffer, size_t size);
   /// Flush any partially filled buffer to DMA (pads with zeros if needed)
   void flush();
   /// Returns the number of bytes available to read from the RX buffer
   int available() override;
   /// Returns the number of bytes available for writing to the TX buffer
-  int availableForWrite();
+  int availableForWrite() override;
+  Buffer txBuffer{512};
+  Buffer rxBuffer{2048};
   /// Get pin configuration for a SAI signal
   PinConfig getPinConfig(PinId id) const { return pins[id]; }
   /// Set audio sample rate

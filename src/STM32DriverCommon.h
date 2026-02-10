@@ -100,6 +100,8 @@ public:
       return 0;
     }
     uint32_t start = millis();
+    uint32_t timeout = audio->getIOTimoutMs();
+    while (!dmaRxTransferComplete && (millis() - start < timeout));
     return dmaRxTransferComplete ? size : 0;
   }
 
