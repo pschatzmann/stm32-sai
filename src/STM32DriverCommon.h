@@ -66,7 +66,9 @@ public:
     hdma_sai_a.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
     hdma_sai_a.Init.Mode = DMA_CIRCULAR;
     hdma_sai_a.Init.Priority = DMA_PRIORITY_HIGH;
-    hdma_sai_a.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+  #ifdef DMA_FIFOMODE_DISABLE
+  hdma_sai_a.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+  #endif
     if (HAL_DMA_Init(&hdma_sai_a) != HAL_OK) {
       Logger::instance().error("HAL_DMA_Init failed");
     }

@@ -1,5 +1,10 @@
 #include "STM32AudioSAI.h"
-#include "STM32DriverH743.h"
+
+#ifdef STM32H743xx
+#  include "STM32DriverH743.h"
+#elif defined(STM32WB55xx)
+#  include "STM32DriverWB55.h"
+#endif
 
 // DMA transfer complete flags (set in driver-specific DMA interrupt handler)
 volatile bool dmaTxTransferComplete = false;

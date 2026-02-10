@@ -1,11 +1,10 @@
 #include "STM32AudioSAI.h"
-#include "stm32h7xx_hal.h"
-#include "stm32h7xx_hal_sai.h"
-#include "stm32h7xx_hal_dma.h"
-
 
 // DMA Interrupt Handler Integration Example using STM32 HAL
 #if defined(STM32H743xx)
+#include "stm32h7xx_hal.h"
+#include "stm32h7xx_hal_sai.h"
+#include "stm32h7xx_hal_dma.h"
 
 // Global DMA handle for SAI1 Block A (needed for HAL IRQ handler)
 DMA_HandleTypeDef hdma_sai_a;
