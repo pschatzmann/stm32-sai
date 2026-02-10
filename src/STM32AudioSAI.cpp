@@ -1,14 +1,7 @@
+// Only include the board config/driver for your target
 #include "STM32AudioSAI.h"
-
-// Board-specific SAI initialization
-#if defined(STM32WB55xx)
-#include "STM32DriverWB55.h"
-#elif defined(STM32H743xx)
 #include "STM32DriverH743.h"
-#endif
 
-// Global driver instance (selects correct implementation at compile time)
-STM32SAIDriver driver;
 // DMA transfer complete flag (set in driver-specific DMA interrupt handler)
 volatile bool dmaTransferComplete = false;
 DoubleBuffer txBuf;
@@ -16,24 +9,11 @@ DoubleBuffer rxBuf;
 
 void handleDMATxComplete() {
   // Called from DMA complete callback (internal, not user)
-  txBuf.swap();
-  txBuf.setBufferReady(txBuf.getActiveBufferIndex(), true);
-  // If both buffers are ready, DMA is idle
-  if (txBuf.isBufferReady(0) && txBuf.isBufferReady(1)) {
-    txBuf.setDMARunning(false);
-  }
 }
-
-// DMA RX complete handler for double-buffered read
 void handleDMARxComplete() {
-  rxBuf.swap();
-  rxBuf.setBufferReady(rxBuf.getActiveBufferIndex(), true);
-  // If both buffers are ready, DMA is idle
-  if (rxBuf.isBufferReady(0) && rxBuf.isBufferReady(1)) {
-    rxBuf.setDMARunning(false);
-  }
+  // Called from DMA RX complete callback (internal, not user)
 }
-
+// Board config and driver instance are now provided by the board-specific header
 bool STM32AudioSAI::begin() {
   if (!configureGPIO()) {
     Logger::instance().error("GPIO configuration failed");
@@ -177,7 +157,7 @@ void STM32AudioSAI::setDataFormat(DataFormat f) { dataFormat = f; }
 STM32AudioSAI::DataFormat STM32AudioSAI::getDataFormat() const {
   return dataFormat;
 }
-bool STM32AudioSAI::isRunning() const { return driver.isRunning(this); }
+bool STM32AudioSAI::isRunning() const { return driver.isRunning(); }
 void STM32AudioSAI::setMode(Mode m) { mode = m; }
 STM32AudioSAI::Mode STM32AudioSAI::getMode() const { return mode; }
 void STM32AudioSAI::setIOTimoutMs(uint32_t ms) { ioTimeoutMs = ms; }
@@ -194,9 +174,9 @@ bool STM32AudioSAI::isDMATransferComplete() const {
   return dmaTransferComplete;
 }
 void STM32AudioSAI::initSAI() { driver.initSAI(this); }
-void STM32AudioSAI::deinitSAI() { driver.deinitSAI(this); }
+void STM32AudioSAI::deinitSAI() { driver.deinitSAI(); }
 void STM32AudioSAI::initDMA() { driver.initDMA(this); }
-void STM32AudioSAI::deinitDMA() { driver.deinitDMA(this); }
+void STM32AudioSAI::deinitDMA() { driver.deinitDMA(); }
 bool STM32AudioSAI::configureGPIO() { return driver.configureGPIO(this); }
 
 // define a global object for easy use in sketches
