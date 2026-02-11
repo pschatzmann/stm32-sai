@@ -6,6 +6,7 @@
 #include "STM32DriverWB55.h"
 #endif
 
+
 // DMA transfer complete flags (set in driver-specific DMA interrupt handler)
 volatile bool dmaTxTransferComplete = false;
 volatile bool dmaRxTransferComplete = false;
@@ -26,7 +27,7 @@ bool STM32AudioSAI::begin() {
 
   if (!initSAI()) return false;
   if (!initDMA()) return false;
-  
+
   return isRunning();
 }
 

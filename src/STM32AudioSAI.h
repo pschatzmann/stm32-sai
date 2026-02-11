@@ -3,13 +3,14 @@
 
 #include <vector>
 
-using sai_pin_t = int16_t;  // Use int16_t to allow -1 for "use default"
+/// Datatype for Pins: Use int16_t to allow -1 for "use default"
+using sai_pin_t = int16_t;  
 
-// Optional user callback for DMA transfer complete
+/// Callback for DMA transfer complete
 extern volatile bool dmaTxTransferComplete;
 extern volatile bool dmaRxTransferComplete;
 
-// Generic buffer to support consistent read/write operations
+/// Generic buffer to support consistent read/write operations
 class Buffer {
  public:
   Buffer(size_t sz = 1024) : buffer(sz), bufferSize(sz), count(0) {}
