@@ -1,20 +1,29 @@
-
 # STM32 SAI Audio Arduino Library
 
-Flexible, robust STM32 SAI/I2S audio library for Arduino with double-buffered DMA, runtime configuration, and strong diagnostics.
+Flexible, robust STM32 SAI/I2S audio library for Arduino with DMA, runtime configuration, and strong diagnostics. Now uses a unified, config-driven driver and a simple buffer for audio streaming.
 
 ## Features
-- Double-buffered DMA for both read and write (low-latency, high-throughput audio)
-- Encapsulated, reusable `DoubleBuffer` class for buffer management
+- DMA for both read and write (low-latency, high-throughput audio)
+- Simple, reusable `Buffer` class for audio data management
 - Robust error handling and diagnostics with singleton `Logger` (log levels, Print output)
-- Global DMA complete handlers for seamless buffer switching
-- Board-specific driver abstraction (STM32WB55, STM32H743; easily extendable)
+- HAL-based DMA completion and callback handling (no manual IRQ flag logic)
+- Unified, config-driven driver for all supported boards (STM32WB55, STM32H743; easily extendable)
 - I2S, PCM, and Free protocol support
 - Master/slave, input/output/duplex modes
 - Runtime configuration: sample rate, bits per sample, channels
 - Per-pin port/pin/AF assignment for SAI signals (SCK, FS, SD, MCLK)
 - DMA transfer timeout handling
 - All configuration and buffer logic encapsulated in public API
+
+## Supported Boards
+
+This library currently supports:
+
+- STM32WB55 series (tested)
+- STM32H743 series (tested)
+
+Other STM32 boards with SAI/I2S hardware can be supported by adding a board config and updating the driver config table. Contributions for additional boards are welcome!
+
 
 ## Getting Started
 1. Copy or clone this library into your Arduino `libraries` folder.
@@ -41,6 +50,8 @@ void loop() {
   // Audio processing here
   // Example: write audio data
   // SAI.write(buffer, size);
+  // Example: read audio data
+  // SAI.read(buffer, size);
 }
 ```
 
@@ -66,7 +77,7 @@ void loop() {
 ## Notes
 - Requires STM32 core for Arduino (STM32duino) and correct board selection
 - Ensure your board supports SAI/I2S hardware
-- Easily extensible for new STM32 variants: add a new driver class and update board selection
+- Easily extensible for new STM32 variants: add a new board config and update the driver config table
 
 ## License
 MIT

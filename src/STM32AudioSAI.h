@@ -76,6 +76,9 @@ class Buffer {
  * SAI.setPin(STM32AudioSAI::SCK, 'B', 3, 6); // Port B, Pin 3, AF6
  * SAI.begin();
  * @endcode
+ * 
+ * @author Peter Schatzmann
+ * @copyright MIT License
  */
 
 class STM32AudioSAI : public Stream {
