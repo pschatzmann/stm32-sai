@@ -1,11 +1,6 @@
 #include "STM32AudioSAI.h"
-
-#ifdef STM32H743xx
-#include "STM32DriverH743.h"
-#elif defined(STM32WB55xx)
-#include "STM32DriverWB55.h"
-#endif
-#include "STM32DriverCommon.h"
+#include "STM32DriverAll.h"
+#include "STM32Driver.h"
 
 // Global driver instance (configured in board-specific header)
 STM32SAIDriver driver{SAI_CONFIG};

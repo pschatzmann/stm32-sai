@@ -1,7 +1,8 @@
 #pragma once
-#include "Arduino.h"  // for millis() in DMA timeout handling
-#include "Logger.h"
-#include "STM32DriverCommon.h"
+
+#ifdef STM32H743xx
+#include "DriverConfig.h"
+#include "PinConfig.h"
 #include "stm32h7xx.h"
 #include "stm32h7xx_hal_sai.h"
 
@@ -17,14 +18,14 @@ static const PinConfig h743Pins[4] = {
 
 /// Board-specific driver config for STM32H743
 STM32SAIDriverConfig SAI_CONFIG = {
-    DMA2_Stream0,        // dma_tx_instance
-    DMA_REQUEST_SAI1_A,  // dma_tx_request
-    DMA2_Stream0_IRQn,   // dma_tx_irq (update if different)
-    DMA2_Stream1,        // dma_rx_instance (update as needed)
-    DMA_REQUEST_SAI1_A,  // dma_rx_request (update as needed)
-    DMA2_Stream1_IRQn,   // dma_rx_irq (update as needed)
-    h743Pins,            // defaultPins
-    4,                   // numPins
+    DMA2_Stream0,                          // dma_tx_instance
+    DMA_REQUEST_SAI1_A,                    // dma_tx_request
+    DMA2_Stream0_IRQn,                     // dma_tx_irq (update if different)
+    DMA2_Stream1,                          // dma_rx_instance (update as needed)
+    DMA_REQUEST_SAI1_A,                    // dma_rx_request (update as needed)
+    DMA2_Stream1_IRQn,                     // dma_rx_irq (update as needed)
+    h743Pins,                              // defaultPins
+    sizeof(h743Pins) / sizeof(PinConfig),  // numPins
     []() {
       __HAL_RCC_DMA2_CLK_ENABLE();
       __HAL_RCC_DMAMUX1_CLK_ENABLE();
@@ -36,3 +37,5 @@ STM32SAIDriverConfig SAI_CONFIG = {
       __HAL_RCC_SAI1_CLK_DISABLE();
     }  // disableClocks
 };
+
+#endif

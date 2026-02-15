@@ -1,7 +1,10 @@
+#if defined(STM32H743xx)
+#include "STM32DriverH743.h"
+#include "Logger.h"
+#include "STM32Driver.h"
 #include "STM32AudioSAI.h"
 
 // DMA Interrupt Handler Integration Example using STM32 HAL
-#if defined(STM32H743xx)
 #include "stm32h7xx_hal.h"
 #include "stm32h7xx_hal_sai.h"
 #include "stm32h7xx_hal_dma.h"

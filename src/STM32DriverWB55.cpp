@@ -1,10 +1,10 @@
+#if defined(STM32WB55xx)
 #include "Logger.h"
 #include "STM32DriverWB55.h"
-#include "STM32DriverCommon.h"
+#include "STM32Driver.h"
 #include "STM32AudioSAI.h"
 
 // DMA Interrupt Handler Integration Example
-#if defined(STM32WB55xx)
 #include "stm32wbxx_hal.h"
 #include "stm32wbxx_hal_sai.h"
 #include "stm32wbxx_hal_dma.h"

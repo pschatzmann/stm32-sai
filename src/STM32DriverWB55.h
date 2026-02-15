@@ -1,6 +1,9 @@
 #pragma once
+
+#ifdef STM32WB55xx
 #include "DriverConfig.h"
 #include "PinConfig.h"
+#include "stm32wbxx.h"
 #include "stm32wbxx_hal.h"
 
 // Pin configuration for STM32WB55 SAI1 Block A
@@ -20,7 +23,7 @@ const STM32SAIDriverConfig SAI_CONFIG = {
     DMA_REQUEST_SAI1_A,  // dma_rx_request (same request for SAI1_A RX)
     DMA1_Channel2_IRQn,  // dma_rx_irq
     WB55_SAI_PINS,       // defaultPins
-    4,                   // numPins
+    sizeof(WB55_SAI_PINS) / sizeof(PinConfig),  // numPins
     []() {
         Logger::instance().debug("enable clocks");
       __HAL_RCC_DMAMUX1_CLK_ENABLE();
@@ -32,3 +35,5 @@ const STM32SAIDriverConfig SAI_CONFIG = {
       __HAL_RCC_DMAMUX1_CLK_DISABLE();
     }  // disableClocks
 };
+
+#endif
