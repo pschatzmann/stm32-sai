@@ -191,7 +191,7 @@ class STM32SAIDriver {
    * @return Number of bytes received (size if successful, 0 on error).
    */
   size_t read(STM32AudioSAI* audio, void* buffer, size_t size) {
-    Logger::instance().debug("read: Entered");
+    Logger::instance().debugf("read: %d",(int) size);
     if (!initDMARx(audio)) {
       Logger::instance().error("DMA RX init failed");
       return 0;
@@ -217,7 +217,7 @@ class STM32SAIDriver {
    * @return Number of bytes transmitted (size if successful, 0 on error).
    */
   size_t write(STM32AudioSAI* audio, const void* buffer, size_t size) {
-    Logger::instance().debug("write: Entered");
+    Logger::instance().debugf("write: %d", (int) size);
     if (!dmaTxTransferComplete) {
       Logger::instance().error(
           "HAL_SAI_Transmit_DMA called while previous transfer still in "
