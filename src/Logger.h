@@ -31,16 +31,36 @@ class Logger {
   void debug(const char* msg) { log(LOG_DEBUG, "[DEBUG] ", msg); }
 
   void errorf(const char* fmt, ...) {
-    if (logLevel >= LOG_ERROR) vlog("[ERROR] ", fmt);
+    if (logLevel >= LOG_ERROR) {
+      va_list args;
+      va_start(args, fmt);
+      vlog_va("[ERROR] ", fmt, args);
+      va_end(args);
+    }
   }
   void warnf(const char* fmt, ...) {
-    if (logLevel >= LOG_WARN) vlog("[WARN]  ", fmt);
+    if (logLevel >= LOG_WARN) {
+      va_list args;
+      va_start(args, fmt);
+      vlog_va("[WARN]  ", fmt, args);
+      va_end(args);
+    }
   }
   void infof(const char* fmt, ...) {
-    if (logLevel >= LOG_INFO) vlog("[INFO]  ", fmt);
+    if (logLevel >= LOG_INFO) {
+      va_list args;
+      va_start(args, fmt);
+      vlog_va("[INFO]  ", fmt, args);
+      va_end(args);
+    }
   }
   void debugf(const char* fmt, ...) {
-    if (logLevel >= LOG_DEBUG) vlog("[DEBUG] ", fmt);
+    if (logLevel >= LOG_DEBUG) {
+      va_list args;
+      va_start(args, fmt);
+      vlog_va("[DEBUG] ", fmt, args);
+      va_end(args);
+    }
   }
 
  private:
@@ -60,11 +80,16 @@ class Logger {
 
   void vlog(const char* prefix, const char* fmt, ...) {
     if (!output) return;
-    char buf[128];
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
+    vlog_va(prefix, fmt, args);
     va_end(args);
+  }
+
+  void vlog_va(const char* prefix, const char* fmt, va_list args) {
+    if (!output) return;
+    char buf[128];
+    vsnprintf(buf, sizeof(buf), fmt, args);
     output->print(prefix);
     output->println(buf);
   }

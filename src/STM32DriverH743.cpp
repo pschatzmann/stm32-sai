@@ -7,11 +7,11 @@
 #include "stm32h7xx_hal_dma.h"
 
 /// Global DMA handle for SAI1 Block A (needed for HAL IRQ handler)
-DMA_HandleTypeDef hdma_sai_a;
+DMA_HandleTypeDef hdma_sai;
 
 /// TX DMA IRQ
-extern "C" void DMA2_Stream0_IRQHandler(void) {
-  HAL_DMA_IRQHandler(&hdma_sai_a);
+void DMA2_Stream0_IRQHandler(void) {
+  HAL_DMA_IRQHandler(&hdma_sai);
 }
 
 /// HAL DMA callbacks (called by HAL_DMA_IRQHandler)

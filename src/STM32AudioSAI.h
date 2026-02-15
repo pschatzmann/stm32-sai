@@ -1,10 +1,7 @@
 #pragma once
 #include <Arduino.h>
-
 #include <vector>
-
-/// Datatype for Pins: Use int16_t to allow -1 for "use default"
-using sai_pin_t = int16_t;  
+#include "PinConfig.h"
 
 /// Callback for DMA transfer complete
 extern volatile bool dmaTxTransferComplete;
@@ -76,7 +73,7 @@ class Buffer {
  * SAI.setPin(STM32AudioSAI::SCK, 'B', 3, 6); // Port B, Pin 3, AF6
  * SAI.begin();
  * @endcode
- * 
+ *
  * @author Peter Schatzmann
  * @copyright MIT License
  */
@@ -95,16 +92,6 @@ class STM32AudioSAI : public Stream {
 
   /// SAI mode: input, output, or duplex (both)
   enum Mode { Input, Output, Duplex };
-
-  /// Pin identifiers for SAI signals
-  enum PinId { SCK, FS, SD, MCLK, NumPins };
-  struct PinConfig {
-    int8_t port;  ///< Port letter as ASCII ('A'=65, ...)
-    int8_t pin;   ///< Pin number
-    int8_t af;    ///< Alternate function
-    PinConfig(int8_t pt = -1, int8_t pn = -1, int8_t a = -1)
-        : port(pt), pin(pn), af(a) {}
-  };
 
   /// Constructor
   STM32AudioSAI() = default;
@@ -134,8 +121,6 @@ class STM32AudioSAI : public Stream {
   int available() override;
   /// Returns the number of bytes available for writing to the TX buffer
   int availableForWrite() override;
-  /// Get pin configuration for a SAI signal
-  PinConfig getPinConfig(PinId id) const { return pins[id]; }
   /// Set audio sample rate
   void setSampleRate(uint32_t rate);
   /// Get audio sample rate
@@ -180,6 +165,10 @@ class STM32AudioSAI : public Stream {
   int8_t getPinAF(PinId id) const;
   /// Check if DMA transfer is complete
   bool isDMATransferComplete() const;
+  /// Get the pin configuration for a given PinId
+  PinConfig getPinConfig(PinId id) const {
+    return pins[static_cast<size_t>(id)];
+  }
 
  private:
   Mode mode = Duplex;
@@ -190,8 +179,8 @@ class STM32AudioSAI : public Stream {
   uint8_t bitsPerSample = 16;
   uint8_t channels = 2;
   uint32_t ioTimeoutMs = 1000;  ///< IO timeout in milliseconds
-  PinConfig pins[NumPins];
-  Buffer txBuffer{512}; 
+  PinConfig pins[static_cast<size_t>(PinId::NumPins)];
+  Buffer txBuffer{512};
   Buffer rxBuffer{2048};
 
   bool initSAI();

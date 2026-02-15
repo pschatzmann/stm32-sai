@@ -5,11 +5,15 @@
 #elif defined(STM32WB55xx)
 #include "STM32DriverWB55.h"
 #endif
+#include "STM32DriverCommon.h"
 
+// Global driver instance (configured in board-specific header)
+STM32SAIDriver driver{SAI_CONFIG};
 
 // DMA transfer complete flags (set in driver-specific DMA interrupt handler)
 volatile bool dmaTxTransferComplete = false;
 volatile bool dmaRxTransferComplete = false;
+
 // RingBuffer instances are now members of STM32AudioSAI
 
 // Board config and driver instance are now provided by the board-specific
@@ -101,13 +105,14 @@ STM32AudioSAI::Mode STM32AudioSAI::getMode() const { return mode; }
 void STM32AudioSAI::setIOTimoutMs(uint32_t ms) { ioTimeoutMs = ms; }
 uint32_t STM32AudioSAI::getIOTimoutMs() const { return ioTimeoutMs; }
 void STM32AudioSAI::setPin(PinId id, int8_t port, int8_t pin, int8_t af) {
-  pins[id].port = port;
-  pins[id].pin = pin;
-  pins[id].af = af;
+  size_t idx = static_cast<size_t>(id);
+  pins[idx].port = port;
+  pins[idx].pin = pin;
+  pins[idx].af = af;
 }
-int8_t STM32AudioSAI::getPinPort(PinId id) const { return pins[id].port; }
-int8_t STM32AudioSAI::getPinNumber(PinId id) const { return pins[id].pin; }
-int8_t STM32AudioSAI::getPinAF(PinId id) const { return pins[id].af; }
+int8_t STM32AudioSAI::getPinPort(PinId id) const { return pins[static_cast<size_t>(id)].port; }
+int8_t STM32AudioSAI::getPinNumber(PinId id) const { return pins[static_cast<size_t>(id)].pin; }
+int8_t STM32AudioSAI::getPinAF(PinId id) const { return pins[static_cast<size_t>(id)].af; }
 bool STM32AudioSAI::isDMATransferComplete() const {
   return dmaRxTransferComplete && dmaTxTransferComplete;
 }

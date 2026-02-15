@@ -8,7 +8,7 @@
 #define SAI_SUPPORT 1
 
 /// Pin configuration for STM32H743 SAI1 Block A
-static const STM32AudioSAI::PinConfig h743Pins[4] = {
+static const PinConfig h743Pins[4] = {
   {'E', 2, 6},  // SCK
   {'E', 3, 6},  // FS
   {'E', 4, 6},  // SD
@@ -16,12 +16,14 @@ static const STM32AudioSAI::PinConfig h743Pins[4] = {
 };
 
 /// Board-specific driver config for STM32H743
-STM32SAIDriverConfig h743Config = {
-  DMA2_Stream0,
-  DMA_REQUEST_SAI1_A,
-  h743Pins,
-  4
+STM32SAIDriverConfig SAI_CONFIG = {
+  DMA2_Stream0,            // dma_tx_instance
+  DMA_REQUEST_SAI1_A,      // dma_tx_request
+  DMA2_Stream0_IRQn,       // dma_tx_irq (update if different)
+  DMA2_Stream1,            // dma_rx_instance (update as needed)
+  DMA_REQUEST_SAI1_A,      // dma_rx_request (update as needed)
+  DMA2_Stream1_IRQn,       // dma_rx_irq (update as needed)
+  h743Pins,                // defaultPins
+  4                        // numPins
 };
 
-/// Board-specific driver instance for STM32H743
-STM32SAIDriver driver(h743Config);

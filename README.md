@@ -1,5 +1,8 @@
 # STM32 SAI Audio Arduino Library
 
+[![Arduino Library](https://img.shields.io/badge/Arduino-Library-blue.svg)](https://www.arduino.cc/reference/en/libraries/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://mit-license.org/)
+
 Flexible, robust STM32 SAI/I2S audio library for Arduino with DMA, runtime configuration, and strong diagnostics. Now uses a unified, config-driven driver and a simple buffer for audio streaming.
 
 ## Features

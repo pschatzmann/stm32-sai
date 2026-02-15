@@ -4,10 +4,13 @@ static float phase = 0.0f;
 
 void setup() {
   Serial.begin(115200);
+  while(!Serial);
+
   if (SAI.begin()) {
     Serial.println("SAI audio output started");
   } else {
     Serial.println("SAI audio failed to start");
+    while(true);
   }
 }
 
@@ -24,5 +27,5 @@ void loop() {
     buffer[i] = nextSineSample(440.0f, 44100.0f);
     buffer[i + 1] = buffer[i];
   }
-  SAI.write(buffer, sizeof(buffer));
+  SAI.write((const uint8_t*)buffer, sizeof(buffer));
 }
