@@ -30,7 +30,9 @@ class STM32SAIDriver {
    * @return true if initialization succeeded, false otherwise.
    */
   bool initSAI(STM32AudioSAI* audio) {
+    Logger::instance().debug("initSAI: Entered");
     __HAL_RCC_SAI1_CLK_ENABLE();
+
     hsai_a.Instance = SAI1_Block_A;
     hsai_a.Init.AudioMode =
         audio->isMaster() ? SAI_MODEMASTER_TX : SAI_MODESLAVE_RX;
@@ -70,6 +72,7 @@ class STM32SAIDriver {
    * @brief Deinitialize the SAI peripheral.
    */
   void deinitSAI() {
+    Logger::instance().debug("deinitSAI: Entered");
     if (HAL_SAI_DeInit(&hsai_a) != HAL_OK) {
       Logger::instance().error("HAL_SAI_DeInit failed");
     }
@@ -77,7 +80,12 @@ class STM32SAIDriver {
   }
 
   bool initDMA(STM32AudioSAI* audio) {
+    Logger::instance().debug("initDMA: Entered");
     bool success = true;
+    __HAL_RCC_DMAMUX1_CLK_ENABLE();
+    __HAL_RCC_DMA1_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
+
     switch (audio->getMode()) {
       case STM32AudioSAI::Output: {
         if (!initDMATx(audio)) {
@@ -111,9 +119,12 @@ class STM32SAIDriver {
    * @brief Deinitialize the DMA peripheral.
    */
   void deinitDMA() {
+    Logger::instance().debug("deinitDMA: Entered");
     if (HAL_DMA_DeInit(&hdma_sai) != HAL_OK) {
       Logger::instance().error("HAL_DMA_DeInit failed");
     }
+    __HAL_RCC_DMA1_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
   }
 
   /**
@@ -123,6 +134,7 @@ class STM32SAIDriver {
    * @return true if all pins were configured successfully, false otherwise.
    */
   bool configureGPIO(STM32AudioSAI* audio) {
+    Logger::instance().debug("configureGPIO: Entered");
     static const char* i2sPinNames[static_cast<size_t>(PinId::NumPins)] = {
         "SCK", "FS", "SD", "MCLK"};
 
@@ -179,6 +191,7 @@ class STM32SAIDriver {
    * @return Number of bytes received (size if successful, 0 on error).
    */
   size_t read(STM32AudioSAI* audio, void* buffer, size_t size) {
+    Logger::instance().debug("read: Entered");
     if (!initDMARx(audio)) {
       Logger::instance().error("DMA RX init failed");
       return 0;
@@ -204,6 +217,7 @@ class STM32SAIDriver {
    * @return Number of bytes transmitted (size if successful, 0 on error).
    */
   size_t write(STM32AudioSAI* audio, const void* buffer, size_t size) {
+    Logger::instance().debug("write: Entered");
     if (!dmaTxTransferComplete) {
       Logger::instance().error(
           "HAL_SAI_Transmit_DMA called while previous transfer still in "
@@ -237,6 +251,7 @@ class STM32SAIDriver {
    * @return true if SAI is enabled, false otherwise.
    */
   bool isRunning() {
+    Logger::instance().debug("isRunning: Entered");
     if (!hsai_a.Instance) return false;
     return true;
     // return (((SAI_TypeDef*)hsai_a.Instance)->CR1 & SAI_xCR1_SAIEN) != 0;
@@ -318,7 +333,12 @@ class STM32SAIDriver {
    */
   // Initialize DMA for TX (write)
   bool initDMATx(STM32AudioSAI* audio) {
-    if (!config.dma_tx_instance) return false;
+    Logger::instance().debug("initDMATx: Entered");
+    if (!config.dma_tx_instance) {
+      Logger::instance().error("DMA TX instance not configured");
+      return false;
+    }
+
     hdma_sai.Instance = (decltype(hdma_sai.Instance))config.dma_tx_instance;
     hdma_sai.Init.Request = config.dma_tx_request;
     hdma_sai.Init.Direction = DMA_MEMORY_TO_PERIPH;
@@ -331,19 +351,27 @@ class STM32SAIDriver {
 #ifdef DMA_FIFOMODE_DISABLE
     hdma_sai.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
 #endif
+    __HAL_LINKDMA(&hsai_a, hdmatx, hdma_sai);
+    HAL_DMA_DeInit(&hdma_sai);
+
     if (HAL_DMA_Init(&hdma_sai) != HAL_OK) {
       Logger::instance().error("HAL_DMA_Init (TX) failed");
       return false;
     }
+    // Explicitly link the SAI handle to the DMA handle before starting DMA
+    hsai_a.hdmatx = &hdma_sai;
     HAL_NVIC_SetPriority(config.dma_tx_irq, 0, 0);
     HAL_NVIC_EnableIRQ(config.dma_tx_irq);
-    __HAL_LINKDMA(&hsai_a, hdmatx, hdma_sai);
     return true;
   }
 
   // Initialize DMA for RX (read)
   bool initDMARx(STM32AudioSAI* audio) {
-    if (!config.dma_rx_instance) return false;
+    Logger::instance().debug("initDMARx: Entered");
+    if (!config.dma_rx_instance) {
+      Logger::instance().error("DMA RX instance not configured");
+      return false;
+    }
     hdma_sai.Instance = (decltype(hdma_sai.Instance))config.dma_rx_instance;
     hdma_sai.Init.Request = config.dma_rx_request;
     hdma_sai.Init.Direction = DMA_PERIPH_TO_MEMORY;
@@ -356,13 +384,16 @@ class STM32SAIDriver {
 #ifdef DMA_FIFOMODE_DISABLE
     hdma_sai.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
 #endif
+    __HAL_LINKDMA(&hsai_a, hdmarx, hdma_sai);
+    HAL_DMA_DeInit(&hdma_sai);
+
     if (HAL_DMA_Init(&hdma_sai) != HAL_OK) {
       Logger::instance().error("HAL_DMA_Init (RX) failed");
       return false;
     }
+    hsai_a.hdmarx = &hdma_sai;
     HAL_NVIC_SetPriority(config.dma_rx_irq, 0, 0);
     HAL_NVIC_EnableIRQ(config.dma_rx_irq);
-    __HAL_LINKDMA(&hsai_a, hdmarx, hdma_sai);
 
     return true;
   }

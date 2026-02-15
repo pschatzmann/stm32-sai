@@ -63,7 +63,7 @@ class Logger {
     }
   }
 
- private:
+ protected:
   Logger() : output(&Serial), logLevel(LOG_INFO) {}
   Logger(const Logger&) = delete;
   Logger& operator=(const Logger&) = delete;

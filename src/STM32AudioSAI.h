@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <vector>
 #include "PinConfig.h"
+#include "Logger.h"
 
 /// Callback for DMA transfer complete
 extern volatile bool dmaTxTransferComplete;
@@ -45,7 +46,7 @@ class Buffer {
   void clear() { count = 0; }
   void advanceWriteIndex(size_t n) { count += n; }
 
- private:
+ protected:
   std::vector<uint8_t> buffer;
   size_t bufferSize;
   size_t count;
@@ -170,7 +171,11 @@ class STM32AudioSAI : public Stream {
     return pins[static_cast<size_t>(id)];
   }
 
- private:
+  void setLogLevel(Logger::Level level) {
+    Logger::instance().setLevel(level);
+  }
+
+ protected:
   Mode mode = Duplex;
   Protocol protocol = I2S;
   bool master = true;

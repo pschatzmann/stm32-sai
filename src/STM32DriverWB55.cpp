@@ -13,12 +13,25 @@
 DMA_HandleTypeDef hdma_sai;
 
 /// TX DMA IRQ
+void DMA1_Stream0_IRQHandler(void) {
+  Logger::instance().debug("DMA1_Stream0_IRQHandler called");
+  HAL_DMA_IRQHandler(&hdma_sai);
+}
+
+void DMA1_Stream1_IRQHandler(void) {
+  Logger::instance().debug("DMA2_Stream1_IRQHandler called");
+  HAL_DMA_IRQHandler(&hdma_sai);
+}
+
+/// TX DMA IRQ
 void DMA1_Channel1_IRQHandler(void) {
+  Logger::instance().debug("DMA1_Channel1_IRQHandler called");
   HAL_DMA_IRQHandler(&hdma_sai);
 }
 
 /// RX DMA IRQ
 void DMA1_Channel2_IRQHandler(void) {
+  Logger::instance().debug("DMA1_Channel2_IRQHandler called");
   HAL_DMA_IRQHandler(&hdma_sai);
 }
 
