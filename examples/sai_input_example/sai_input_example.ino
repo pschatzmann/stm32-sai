@@ -4,6 +4,8 @@ STM32AudioSAI I2S;
 
 void setup() {
   Serial.begin(115200);
+  while(!Serial);
+
   SAI.setMode(STM32AudioSAI::Input);
   SAI.setSampleRate(44100);
   SAI.setBitsPerSample(16);
