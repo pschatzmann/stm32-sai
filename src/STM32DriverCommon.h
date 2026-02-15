@@ -82,9 +82,11 @@ class STM32SAIDriver {
   bool initDMA(STM32AudioSAI* audio) {
     Logger::instance().debug("initDMA: Entered");
     bool success = true;
-    __HAL_RCC_DMAMUX1_CLK_ENABLE();
-    __HAL_RCC_DMA1_CLK_ENABLE();
-    __HAL_RCC_DMA2_CLK_ENABLE();
+    if (config.enableClocks) {
+      config.enableClocks();
+    } else {
+      Logger::instance().error("No clock enable function provided in config");
+    }
 
     switch (audio->getMode()) {
       case STM32AudioSAI::Output: {
@@ -123,8 +125,11 @@ class STM32SAIDriver {
     if (HAL_DMA_DeInit(&hdma_sai) != HAL_OK) {
       Logger::instance().error("HAL_DMA_DeInit failed");
     }
-    __HAL_RCC_DMA1_CLK_ENABLE();
-    __HAL_RCC_DMA2_CLK_ENABLE();
+    if (config.disableClocks) {
+      config.disableClocks();
+    } else {
+      Logger::instance().error("No clock disable function provided in config");
+    }
   }
 
   /**
@@ -191,11 +196,7 @@ class STM32SAIDriver {
    * @return Number of bytes received (size if successful, 0 on error).
    */
   size_t read(STM32AudioSAI* audio, void* buffer, size_t size) {
-    Logger::instance().debugf("read: %d",(int) size);
-    if (!initDMARx(audio)) {
-      Logger::instance().error("DMA RX init failed");
-      return 0;
-    }
+    Logger::instance().debugf("read: %d", (int)size);
     dmaRxTransferComplete = false;
     if (HAL_SAI_Receive_DMA(&hsai_a, (uint8_t*)buffer,
                             size / (audio->getBitsPerSample() / 8)) != HAL_OK) {
@@ -217,15 +218,11 @@ class STM32SAIDriver {
    * @return Number of bytes transmitted (size if successful, 0 on error).
    */
   size_t write(STM32AudioSAI* audio, const void* buffer, size_t size) {
-    Logger::instance().debugf("write: %d", (int) size);
+    Logger::instance().debugf("write: %d", (int)size);
     if (!dmaTxTransferComplete) {
-      Logger::instance().error(
+      Logger::instance().warn(
           "HAL_SAI_Transmit_DMA called while previous transfer still in "
           "progress");
-      return 0;
-    }
-    if (!initDMATx(audio)) {
-      Logger::instance().error("DMA TX init failed");
       return 0;
     }
     dmaTxTransferComplete = false;

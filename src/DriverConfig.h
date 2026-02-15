@@ -16,4 +16,7 @@ struct STM32SAIDriverConfig {
   // Pin config
   const PinConfig* defaultPins;
   int numPins = 4;
+  // Board-specific clock enable/disable lambdas
+  void (*enableClocks)();
+  void (*disableClocks)();
 };
