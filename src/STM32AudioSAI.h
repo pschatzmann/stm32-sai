@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <vector>
 #include "PinConfig.h"
-#include "Logger.h"
+#include "STM32AudioLogger.h"
 
 /// Callback for DMA transfer complete
 extern volatile bool dmaTxTransferComplete;

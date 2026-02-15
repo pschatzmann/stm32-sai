@@ -1,6 +1,6 @@
 #if defined(STM32H743xx)
 #include "STM32DriverH743.h"
-#include "Logger.h"
+#include "STM32AudioLogger.h"
 #include "STM32Driver.h"
 #include "STM32AudioSAI.h"
 

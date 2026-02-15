@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 #include "DriverConfig.h"
-#include "Logger.h"
+#include "STM32AudioLogger.h"
 #include "PinConfig.h"
 #include "STM32AudioSAI.h"
 

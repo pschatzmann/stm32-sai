@@ -1,5 +1,5 @@
 #if defined(STM32WB55xx)
-#include "Logger.h"
+#include "STM32AudioLogger.h"
 #include "STM32DriverWB55.h"
 #include "STM32Driver.h"
 #include "STM32AudioSAI.h"

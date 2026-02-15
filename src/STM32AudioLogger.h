@@ -1,18 +1,18 @@
 #pragma once
 #include <Arduino.h>
 
-class Logger {
+class STM32AudioLogger {
  public:
   enum Level {
-    LOG_NONE = 0,
-    LOG_ERROR = 1,
-    LOG_WARN = 2,
-    LOG_INFO = 3,
-    LOG_DEBUG = 4
+    NONE = 0,
+    ERROR = 1,
+    WARN = 2,
+    INFO = 3,
+    DEBUG = 4
   };
 
-  static Logger& instance() {
-    static Logger _instance;
+  static STM32AudioLogger& instance() {
+    static STM32AudioLogger _instance;
     return _instance;
   }
 
@@ -25,13 +25,13 @@ class Logger {
   void setLevel(Level level) { logLevel = level; }
   Level getLevel() const { return logLevel; }
 
-  void error(const char* msg) { log(LOG_ERROR, "[ERROR] ", msg); }
-  void warn(const char* msg) { log(LOG_WARN, "[WARN]  ", msg); }
-  void info(const char* msg) { log(LOG_INFO, "[INFO]  ", msg); }
-  void debug(const char* msg) { log(LOG_DEBUG, "[DEBUG] ", msg); }
+  void error(const char* msg) { log(ERROR, "[ERROR] ", msg); }
+  void warn(const char* msg) { log(WARN, "[WARN]  ", msg); }
+  void info(const char* msg) { log(INFO, "[INFO]  ", msg); }
+  void debug(const char* msg) { log(DEBUG, "[DEBUG] ", msg); }
 
   void errorf(const char* fmt, ...) {
-    if (logLevel >= LOG_ERROR) {
+    if (logLevel >= ERROR) {
       va_list args;
       va_start(args, fmt);
       vlog_va("[ERROR] ", fmt, args);
@@ -39,7 +39,7 @@ class Logger {
     }
   }
   void warnf(const char* fmt, ...) {
-    if (logLevel >= LOG_WARN) {
+    if (logLevel >= WARN) {
       va_list args;
       va_start(args, fmt);
       vlog_va("[WARN]  ", fmt, args);
@@ -47,7 +47,7 @@ class Logger {
     }
   }
   void infof(const char* fmt, ...) {
-    if (logLevel >= LOG_INFO) {
+    if (logLevel >= INFO) {
       va_list args;
       va_start(args, fmt);
       vlog_va("[INFO]  ", fmt, args);
@@ -55,7 +55,7 @@ class Logger {
     }
   }
   void debugf(const char* fmt, ...) {
-    if (logLevel >= LOG_DEBUG) {
+    if (logLevel >= DEBUG) {
       va_list args;
       va_start(args, fmt);
       vlog_va("[DEBUG] ", fmt, args);
@@ -64,9 +64,9 @@ class Logger {
   }
 
  protected:
-  Logger() : output(&Serial), logLevel(LOG_INFO) {}
-  Logger(const Logger&) = delete;
-  Logger& operator=(const Logger&) = delete;
+  STM32AudioLogger() : output(&Serial), logLevel(INFO) {}
+  STM32AudioLogger(const STM32AudioLogger&) = delete;
+  STM32AudioLogger& operator=(const STM32AudioLogger&) = delete;
 
   Print* output;
   Level logLevel;
