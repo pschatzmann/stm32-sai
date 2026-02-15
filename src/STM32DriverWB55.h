@@ -25,15 +25,32 @@ const STM32SAIDriverConfig SAI_CONFIG = {
     WB55_SAI_PINS,       // defaultPins
     sizeof(WB55_SAI_PINS) / sizeof(PinConfig),  // numPins
     []() {
-        Logger::instance().debug("enable clocks");
+      // enableSAIClocks
+      STM32AudioLogger::instance().debug("enable SAI clocks");
+      RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+      PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SAI1;
+      PeriphClkInitStruct.Sai1ClockSelection = RCC_SAI1CLKSOURCE_PLL;
+      if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK) {
+        STM32AudioLogger::instance().error("SAI1 clock configuration failed");
+      }
+      __HAL_RCC_SAI1_CLK_ENABLE();
+    },
+    []() {
+      // disableSAIClocks
+      STM32AudioLogger::instance().debug("disable clocks");
+      __HAL_RCC_SAI1_CLK_DISABLE();
+    },
+    []() {
+      // enableDMAClocks
+      STM32AudioLogger::instance().debug("enable DMA clocks");
       __HAL_RCC_DMAMUX1_CLK_ENABLE();
       __HAL_RCC_DMA1_CLK_ENABLE();
-    },  // enableClocks
+    },
     []() {
-        Logger::instance().debug("disable clocks");
+      // disableDMAClocks
+      STM32AudioLogger::instance().debug("disable clocks");
       __HAL_RCC_DMA1_CLK_DISABLE();
       __HAL_RCC_DMAMUX1_CLK_DISABLE();
-    }  // disableClocks
-};
+    }};
 
 #endif

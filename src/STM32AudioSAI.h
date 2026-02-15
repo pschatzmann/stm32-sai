@@ -171,8 +171,8 @@ class STM32AudioSAI : public Stream {
     return pins[static_cast<size_t>(id)];
   }
 
-  void setLogLevel(Logger::Level level) {
-    Logger::instance().setLevel(level);
+  void setLogLevel(STM32AudioLogger::Level level) {
+    STM32AudioLogger::instance().setLevel(level);
   }
 
  protected:

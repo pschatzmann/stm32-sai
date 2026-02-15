@@ -30,12 +30,12 @@ STM32SAIDriverConfig SAI_CONFIG = {
       __HAL_RCC_DMA2_CLK_ENABLE();
       __HAL_RCC_DMAMUX1_CLK_ENABLE();
       __HAL_RCC_SAI1_CLK_ENABLE();
-    },  // enableClocks
+    },  // enableDMAClocks
     []() {
       __HAL_RCC_DMA2_CLK_DISABLE();
       __HAL_RCC_DMAMUX1_CLK_DISABLE();
       __HAL_RCC_SAI1_CLK_DISABLE();
-    }  // disableClocks
+    }  // disableDMAClocks
 };
 
 #endif

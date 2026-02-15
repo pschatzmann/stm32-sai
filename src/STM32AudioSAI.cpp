@@ -15,7 +15,7 @@ volatile bool dmaRxTransferComplete = false;
 // header
 bool STM32AudioSAI::begin() {
   if (!configureGPIO()) {
-    Logger::instance().error("GPIO configuration failed");
+    STM32AudioLogger::instance().error("GPIO configuration failed");
     return false;
   }
   // setup tx buffer with consistent block size for DMA writes based on buffer

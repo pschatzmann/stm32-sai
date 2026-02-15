@@ -30,8 +30,7 @@ class STM32SAIDriver {
    * @return true if initialization succeeded, false otherwise.
    */
   bool initSAI(STM32AudioSAI* audio) {
-    Logger::instance().debug("initSAI: Entered");
-    __HAL_RCC_SAI1_CLK_ENABLE();
+    STM32AudioLogger::instance().debug("initSAI: Entered");
 
     hsai_a.Instance = SAI1_Block_A;
     hsai_a.Init.AudioMode =
@@ -62,7 +61,7 @@ class STM32SAIDriver {
     hsai_a.SlotInit.SlotActive = SAI_SLOTACTIVE_0 | SAI_SLOTACTIVE_1;
 
     if (HAL_SAI_Init(&hsai_a) != HAL_OK) {
-      Logger::instance().error("HAL_SAI_Init failed");
+      STM32AudioLogger::instance().error("HAL_SAI_Init failed");
       return false;
     }
     return true;
@@ -72,44 +71,44 @@ class STM32SAIDriver {
    * @brief Deinitialize the SAI peripheral.
    */
   void deinitSAI() {
-    Logger::instance().debug("deinitSAI: Entered");
+    STM32AudioLogger::instance().debug("deinitSAI: Entered");
     if (HAL_SAI_DeInit(&hsai_a) != HAL_OK) {
-      Logger::instance().error("HAL_SAI_DeInit failed");
+      STM32AudioLogger::instance().error("HAL_SAI_DeInit failed");
     }
     __HAL_RCC_SAI1_CLK_DISABLE();
   }
 
   bool initDMA(STM32AudioSAI* audio) {
-    Logger::instance().debug("initDMA: Entered");
+    STM32AudioLogger::instance().debug("initDMA: Entered");
     bool success = true;
-    if (config.enableClocks) {
-      config.enableClocks();
+    if (config.enableDMAClocks) {
+      config.enableDMAClocks();
     } else {
-      Logger::instance().error("No clock enable function provided in config");
+      STM32AudioLogger::instance().error("No clock enable function provided in config");
     }
 
     switch (audio->getMode()) {
       case STM32AudioSAI::Output: {
         if (!initDMATx(audio)) {
-          Logger::instance().error("DMA TX init failed");
+          STM32AudioLogger::instance().error("DMA TX init failed");
           success = false;
         }
         break;
       }
       case STM32AudioSAI::Input: {
         if (!initDMARx(audio)) {
-          Logger::instance().error("DMA RX init failed");
+          STM32AudioLogger::instance().error("DMA RX init failed");
           success = false;
         }
         break;
       }
       case STM32AudioSAI::Duplex: {
         if (!initDMATx(audio)) {
-          Logger::instance().error("DMA TX init failed");
+          STM32AudioLogger::instance().error("DMA TX init failed");
           success = false;
         }
         if (!initDMARx(audio)) {
-          Logger::instance().error("DMA RX init failed");
+          STM32AudioLogger::instance().error("DMA RX init failed");
           success = false;
         }
         break;
@@ -121,14 +120,14 @@ class STM32SAIDriver {
    * @brief Deinitialize the DMA peripheral.
    */
   void deinitDMA() {
-    Logger::instance().debug("deinitDMA: Entered");
+    STM32AudioLogger::instance().debug("deinitDMA: Entered");
     if (HAL_DMA_DeInit(&hdma_sai) != HAL_OK) {
-      Logger::instance().error("HAL_DMA_DeInit failed");
+      STM32AudioLogger::instance().error("HAL_DMA_DeInit failed");
     }
-    if (config.disableClocks) {
-      config.disableClocks();
+    if (config.disableDMAClocks) {
+      config.disableDMAClocks();
     } else {
-      Logger::instance().error("No clock disable function provided in config");
+      STM32AudioLogger::instance().error("No clock disable function provided in config");
     }
   }
 
@@ -139,7 +138,7 @@ class STM32SAIDriver {
    * @return true if all pins were configured successfully, false otherwise.
    */
   bool configureGPIO(STM32AudioSAI* audio) {
-    Logger::instance().debug("configureGPIO: Entered");
+    STM32AudioLogger::instance().debug("configureGPIO: Entered");
     static const char* i2sPinNames[static_cast<size_t>(PinId::NumPins)] = {
         "SCK", "FS", "SD", "MCLK"};
 
@@ -160,10 +159,10 @@ class STM32SAIDriver {
       if (cfg.af == -1 && config.defaultPins) cfg.af = config.defaultPins[i].af;
       // Print port as character if in valid range, else as integer
       if (cfg.port >= 'A' && cfg.port <= 'Z') {
-        Logger::instance().infof("SAI Pin %s (%d): Port %c, Pin %d, AF %d",
+        STM32AudioLogger::instance().infof("SAI Pin %s (%d): Port %c, Pin %d, AF %d",
                                  pinName, i, cfg.port, cfg.pin, cfg.af);
       } else {
-        Logger::instance().infof(
+        STM32AudioLogger::instance().infof(
             "SAI Pin %s (%d): Port %d (invalid), Pin %d, AF %d", pinName, i,
             cfg.port, cfg.pin, cfg.af);
       }
@@ -180,7 +179,7 @@ class STM32SAIDriver {
         GPIO_InitStruct.Alternate = cfg.af;
         HAL_GPIO_Init(gpio_port, &GPIO_InitStruct);
       } else {
-        Logger::instance().errorf("Invalid GPIO port for SAI Pin %s (%d)",
+        STM32AudioLogger::instance().errorf("Invalid GPIO port for SAI Pin %s (%d)",
                                   pinName, i);
         success = false;
       }
@@ -196,11 +195,11 @@ class STM32SAIDriver {
    * @return Number of bytes received (size if successful, 0 on error).
    */
   size_t read(STM32AudioSAI* audio, void* buffer, size_t size) {
-    Logger::instance().debugf("read: %d", (int)size);
+    STM32AudioLogger::instance().debugf("read: %d", (int)size);
     dmaRxTransferComplete = false;
     if (HAL_SAI_Receive_DMA(&hsai_a, (uint8_t*)buffer,
                             size / (audio->getBitsPerSample() / 8)) != HAL_OK) {
-      Logger::instance().error("HAL_SAI_Receive_DMA failed");
+      STM32AudioLogger::instance().error("HAL_SAI_Receive_DMA failed");
       return 0;
     }
     // Wait for transfer to complete or timeout
@@ -218,9 +217,9 @@ class STM32SAIDriver {
    * @return Number of bytes transmitted (size if successful, 0 on error).
    */
   size_t write(STM32AudioSAI* audio, const void* buffer, size_t size) {
-    Logger::instance().debugf("write: %d", (int)size);
+    STM32AudioLogger::instance().debugf("write: %d", (int)size);
     if (!dmaTxTransferComplete) {
-      Logger::instance().warn(
+      STM32AudioLogger::instance().warn(
           "HAL_SAI_Transmit_DMA called while previous transfer still in "
           "progress");
       return 0;
@@ -230,7 +229,7 @@ class STM32SAIDriver {
     HAL_StatusTypeDef hal_status =
         HAL_SAI_Transmit_DMA(&hsai_a, (uint8_t*)buffer, nwords);
     if (hal_status != HAL_OK) {
-      Logger::instance().errorf(
+      STM32AudioLogger::instance().errorf(
           "HAL_SAI_Transmit_DMA failed: status=%d, buffer=%p, size=%u, "
           "nwords=%lu",
           (int)hal_status, buffer, (unsigned)size, (unsigned long)nwords);
@@ -248,7 +247,7 @@ class STM32SAIDriver {
    * @return true if SAI is enabled, false otherwise.
    */
   bool isRunning() {
-    Logger::instance().debug("isRunning: Entered");
+    STM32AudioLogger::instance().debug("isRunning: Entered");
     if (!hsai_a.Instance) return false;
     return true;
     // return (((SAI_TypeDef*)hsai_a.Instance)->CR1 & SAI_xCR1_SAIEN) != 0;
@@ -289,7 +288,7 @@ class STM32SAIDriver {
       case 192000:
         return SAI_AUDIO_FREQUENCY_192K;
       default:
-        Logger::instance().errorf(
+        STM32AudioLogger::instance().errorf(
             "Unsupported sample rate: %u, using 44.1kHz fallback", rate);
         return SAI_AUDIO_FREQUENCY_44K;  // fallback
     }
@@ -316,7 +315,7 @@ class STM32SAIDriver {
       case 32:
         return SAI_DATASIZE_32;
       default:
-        Logger::instance().errorf(
+        STM32AudioLogger::instance().errorf(
             "Unsupported data size: %u, using 16-bit fallback", bits);
         return SAI_DATASIZE_16;  // fallback
     }
@@ -330,9 +329,9 @@ class STM32SAIDriver {
    */
   // Initialize DMA for TX (write)
   bool initDMATx(STM32AudioSAI* audio) {
-    Logger::instance().debug("initDMATx: Entered");
+    STM32AudioLogger::instance().debug("initDMATx: Entered");
     if (!config.dma_tx_instance) {
-      Logger::instance().error("DMA TX instance not configured");
+      STM32AudioLogger::instance().error("DMA TX instance not configured");
       return false;
     }
 
@@ -352,7 +351,7 @@ class STM32SAIDriver {
     HAL_DMA_DeInit(&hdma_sai);
 
     if (HAL_DMA_Init(&hdma_sai) != HAL_OK) {
-      Logger::instance().error("HAL_DMA_Init (TX) failed");
+      STM32AudioLogger::instance().error("HAL_DMA_Init (TX) failed");
       return false;
     }
     // Explicitly link the SAI handle to the DMA handle before starting DMA
@@ -364,9 +363,9 @@ class STM32SAIDriver {
 
   // Initialize DMA for RX (read)
   bool initDMARx(STM32AudioSAI* audio) {
-    Logger::instance().debug("initDMARx: Entered");
+    STM32AudioLogger::instance().debug("initDMARx: Entered");
     if (!config.dma_rx_instance) {
-      Logger::instance().error("DMA RX instance not configured");
+      STM32AudioLogger::instance().error("DMA RX instance not configured");
       return false;
     }
     hdma_sai.Instance = (decltype(hdma_sai.Instance))config.dma_rx_instance;
@@ -385,7 +384,7 @@ class STM32SAIDriver {
     HAL_DMA_DeInit(&hdma_sai);
 
     if (HAL_DMA_Init(&hdma_sai) != HAL_OK) {
-      Logger::instance().error("HAL_DMA_Init (RX) failed");
+      STM32AudioLogger::instance().error("HAL_DMA_Init (RX) failed");
       return false;
     }
     hsai_a.hdmarx = &hdma_sai;
