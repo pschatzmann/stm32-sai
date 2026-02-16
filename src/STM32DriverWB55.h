@@ -16,14 +16,16 @@ const PinConfig WB55_SAI_PINS[4] = {
 
 // Board-specific driver config for STM32WB55
 const STM32SAIDriverConfig SAI_CONFIG = {
-    DMA1_Channel1,       // dma_tx_instance
-    DMA_REQUEST_SAI1_A,  // dma_tx_request
-    DMA1_Channel1_IRQn,  // dma_tx_irq
-    DMA1_Channel2,       // dma_rx_instance
-    DMA_REQUEST_SAI1_A,  // dma_rx_request (same request for SAI1_A RX)
-    DMA1_Channel2_IRQn,  // dma_rx_irq
-    WB55_SAI_PINS,       // defaultPins
-    sizeof(WB55_SAI_PINS) / sizeof(PinConfig),  // numPins
+  SAI1_Block_A,        // sai block
+  DMA1_Channel1,       // dma_tx_instance
+  DMA_REQUEST_SAI1_A,  // dma_tx_request
+  DMA1_Channel1_IRQn,  // dma_tx_irq
+  SAI1_Block_A,        // sai block
+  DMA1_Channel2,       // dma_rx_instance
+  DMA_REQUEST_SAI1_A,  // dma_rx_request (same request for SAI1_A RX)
+  DMA1_Channel2_IRQn,  // dma_rx_irq
+  WB55_SAI_PINS,       // defaultPins
+  sizeof(WB55_SAI_PINS) / sizeof(PinConfig),  // numPins
     []() {
       // enableSAIClocks
       STM32AudioLogger::instance().debug("enable SAI clocks");

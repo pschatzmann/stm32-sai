@@ -16,6 +16,10 @@ DMA_HandleTypeDef hdma_sai;
 void DMA2_Stream0_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_sai);
 }
+/// TX DMA IRQ
+void DMA2_Stream1_IRQHandler(void) {
+  HAL_DMA_IRQHandler(&hdma_sai);
+}
 
 /// HAL DMA callbacks (called by HAL_DMA_IRQHandler)
 void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai) {

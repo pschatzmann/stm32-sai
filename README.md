@@ -22,8 +22,8 @@ Flexible, robust STM32 SAI/I2S audio library for Arduino with DMA, runtime confi
 
 This library currently supports:
 
-- STM32WB55 series (tested)
-- STM32H743 series (tested)
+- STM32WB55 series
+- STM32H743 series
 
 Other STM32 boards with SAI/I2S hardware can be supported by adding a board config and updating the driver config table. Contributions for additional boards are welcome!
 
