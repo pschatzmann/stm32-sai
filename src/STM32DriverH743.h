@@ -18,26 +18,27 @@ static const PinConfig h743Pins[4] = {
 
 /// Board-specific driver config for STM32H743
 STM32SAIDriverConfig SAI_CONFIG = {
-    SAI1_Block_A,                          // sai block
-    DMA2_Stream0,                          // dma_tx_instance
-    DMA_REQUEST_SAI1_A,                    // dma_tx_request
-    DMA2_Stream0_IRQn,                     // dma_tx_irq (update if different)
-    SAI1_Block_B,                           // rx sai block
-    DMA2_Stream1,                          // dma_rx_instance (update as needed)
-    DMA_REQUEST_SAI1_B,                    // dma_rx_request (update as needed)
-    DMA2_Stream1_IRQn,                     // dma_rx_irq (update as needed)
-    h743Pins,                              // defaultPins
-    sizeof(h743Pins) / sizeof(PinConfig),  // numPins
+    SAI1_Block_A,                            // sai_block_tx
+    DMA2_Stream0,                            // dma_tx_instance
+    DMA_REQUEST_SAI1_A,                      // dma_tx_request
+    DMA2_Stream0_IRQn,                       // dma_tx_irq
+    SAI1_Block_B,                            // sai_block_rx
+    DMA2_Stream1,                            // dma_rx_instance
+    DMA_REQUEST_SAI1_B,                      // dma_rx_request
+    DMA2_Stream1_IRQn,                       // dma_rx_irq
+    h743Pins,                                // defaultPins
+    sizeof(h743Pins) / sizeof(PinConfig),    // numPins
+    []() { __HAL_RCC_SAI1_CLK_ENABLE(); },   // enableSAIClocks
+    []() { __HAL_RCC_SAI1_CLK_DISABLE(); },  // disableSAIClocks
     []() {
+      // enableDMAClocks
       __HAL_RCC_DMA2_CLK_ENABLE();
       __HAL_RCC_DMAMUX1_CLK_ENABLE();
-      __HAL_RCC_SAI1_CLK_ENABLE();
-    },  // enableDMAClocks
+    },
     []() {
+      // disableDMAClocks
       __HAL_RCC_DMA2_CLK_DISABLE();
       __HAL_RCC_DMAMUX1_CLK_DISABLE();
-      __HAL_RCC_SAI1_CLK_DISABLE();
-    }  // disableDMAClocks
-};
+    }};
 
 #endif

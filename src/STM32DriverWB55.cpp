@@ -16,19 +16,6 @@ DMA_HandleTypeDef* hdma_sai_rx = nullptr;
 
 /// TX DMA IRQ
 
-void DMA1_Stream0_IRQHandler(void) {
-  STM32AudioLogger::instance().debug("DMA1_Stream0_IRQHandler called");
-  if (hdma_sai_tx) HAL_DMA_IRQHandler(hdma_sai_tx);
-}
-
-
-void DMA1_Stream1_IRQHandler(void) {
-  STM32AudioLogger::instance().debug("DMA2_Stream1_IRQHandler called");
-  if (hdma_sai_rx) HAL_DMA_IRQHandler(hdma_sai_rx);
-}
-
-/// TX DMA IRQ
-
 void DMA1_Channel1_IRQHandler(void) {
   STM32AudioLogger::instance().debug("DMA1_Channel1_IRQHandler called");
   if (hdma_sai_tx) HAL_DMA_IRQHandler(hdma_sai_tx);
