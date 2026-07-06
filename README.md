@@ -3,9 +3,13 @@
 [![Arduino Library](https://img.shields.io/badge/Arduino-Library-blue.svg)](https://www.arduino.cc/reference/en/libraries/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://mit-license.org/)
 
-Flexible, robust STM32 SAI/I2S audio library for Arduino with DMA, runtime configuration, and strong diagnostics. Now uses a unified, config-driven driver and a simple buffer for audio streaming.
+Many STM microcontrollers provide the SAI API for Audio Processing.
+This is the most capable and flexible audio peripheral. Supports I2S, PCM, TDM, AC'97, and free protocol modes. Has two semi-independent blocks (Block A / Block B) that can be configured as master/slave or TX/RX pairs. It is available on mid-to-high-end parts (F4, F7, H7, WB55, etc.).
+
+Ths project provides a high level, flexible, robust STM32 SAI audio library for Arduino with DMA, runtime configuration, and strong diagnostics. Now uses a unified, config-driven driver and a simple buffer for audio streaming.
 
 ## Features
+
 - DMA for both read and write (low-latency, high-throughput audio)
 - Simple, reusable `Buffer` class for audio data management
 - Robust error handling and diagnostics with singleton `Logger` (log levels, Print output)
@@ -27,13 +31,14 @@ This library currently supports:
 
 Other STM32 boards with SAI/I2S hardware can be supported by adding a board config and updating the driver config table. Contributions for additional boards are welcome!
 
-
 ## Getting Started
+
 1. Copy or clone this library into your Arduino `libraries` folder.
 2. Open the Arduino IDE and select your STM32 board.
 3. See the `examples/` folder for usage.
 
 ## Example
+
 ```cpp
 #include <STM32AudioSAI.h>
 
@@ -59,6 +64,7 @@ void loop() {
 ```
 
 ## API Overview
+
 - `setSampleRate(uint32_t rate)`
 - `setChannels(uint8_t ch)`
 - `setBitsPerSample(uint8_t bits)`
@@ -73,14 +79,17 @@ void loop() {
 - `isRunning()`
 
 ## Error Handling & Logging
+
 - All board drivers propagate errors from `configureGPIO()`; `begin()` returns `false` on failure
 - Diagnostics and warnings are logged via the singleton `Logger` (configurable log level, Print output)
 - DMA transfer timeout returns 0 if not completed in time
 
 ## Notes
+
 - Requires STM32 core for Arduino (STM32duino) and correct board selection
 - Ensure your board supports SAI/I2S hardware
 - Easily extensible for new STM32 variants: add a new board config and update the driver config table
 
 ## License
+
 MIT
