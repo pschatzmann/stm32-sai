@@ -26,8 +26,9 @@ const STM32SAIDriverConfig SAI_CONFIG = {
   DMA1_Channel2_IRQn,  // dma_rx_irq
   WB55_SAI_PINS,       // defaultPins
   sizeof(WB55_SAI_PINS) / sizeof(PinConfig),  // numPins
-    []() {
-      // enableSAIClocks
+    [](uint32_t sample_rate) {
+      // enableSAIClocks: WB55 routes SAI1 straight from the main PLL with no
+      // per-sample-rate divider selection, so sample_rate is unused here.
       STM32AudioLogger::instance().debug("enable SAI clocks");
       RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
       PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SAI1;

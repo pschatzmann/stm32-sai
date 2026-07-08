@@ -2,6 +2,7 @@
 
 #include "DriverConfig.h"
 #include "PinConfig.h"
+#include "PortNames.h"
 #include "STM32AudioLogger.h"
 #include "STM32AudioSAI.h"
 
@@ -176,6 +177,12 @@ class STM32SAIDriver {
         gpio_port = (GPIO_TypeDef*)(GPIOA_BASE + 0x400U * (cfg.port - 'A'));
       }
       if (gpio_port) {
+        // These SAI pins are never touched via Arduino pinMode()/digitalWrite(),
+        // which is normally what enables a port's GPIO clock on this core (see
+        // set_GPIO_Port_Clock() in SrcWrapper's PortNames.c) - without this,
+        // HAL_GPIO_Init below silently writes to a clock-gated peripheral and
+        // the pin never actually switches to AF mode.
+        set_GPIO_Port_Clock(cfg.port - 'A');
         GPIO_InitStruct.Pin = 1U << cfg.pin;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -351,7 +358,14 @@ class STM32SAIDriver {
     }
     hdma_sai_tx->Instance =
         (decltype(hdma_sai_tx->Instance))config.dma_tx_instance;
+    // DMAMUX-equipped chips (H7/WB/L4+/G4) select the DMA request via
+    // DMA_InitTypeDef::Request; classic stream/channel DMA (F1-F4, F7 - no
+    // DMAMUX1 macro) uses ::Channel instead - the two fields don't coexist.
+#if defined(DMAMUX1) || defined(DMAMUX)
     hdma_sai_tx->Init.Request = config.dma_tx_request;
+#else
+    hdma_sai_tx->Init.Channel = config.dma_tx_request;
+#endif
     hdma_sai_tx->Init.Direction = DMA_MEMORY_TO_PERIPH;
     hdma_sai_tx->Init.PeriphInc = DMA_PINC_DISABLE;
     hdma_sai_tx->Init.MemInc = DMA_MINC_ENABLE;
@@ -385,7 +399,11 @@ class STM32SAIDriver {
     }
     hdma_sai_rx->Instance =
         (decltype(hdma_sai_rx->Instance))config.dma_rx_instance;
+#if defined(DMAMUX1) || defined(DMAMUX)
     hdma_sai_rx->Init.Request = config.dma_rx_request;
+#else
+    hdma_sai_rx->Init.Channel = config.dma_rx_request;
+#endif
     hdma_sai_rx->Init.Direction = DMA_PERIPH_TO_MEMORY;
     hdma_sai_rx->Init.PeriphInc = DMA_PINC_DISABLE;
     hdma_sai_rx->Init.MemInc = DMA_MINC_ENABLE;
@@ -423,7 +441,7 @@ class STM32SAIDriver {
     STM32AudioLogger::instance().debug(isTx ? "initSAITx: Entered"
                                             : "initSAIRx: Entered");
     if (config.enableSAIClocks) {
-      config.enableSAIClocks();
+      config.enableSAIClocks(audio->getSampleRate());
     } else {
       STM32AudioLogger::instance().error(
           "No clock enable function provided in config");

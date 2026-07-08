@@ -18,8 +18,13 @@ struct STM32SAIDriverConfig {
   // Pin config
   const PinConfig* defaultPins;
   int numPins = 4;
-  // Board-specific clock enable/disable lambdas
-  void (*enableSAIClocks)();
+  // Board-specific clock enable/disable lambdas. enableSAIClocks takes the
+  // target sample rate in Hz so boards whose SAI clock source needs a
+  // different PLL profile per sample-rate family (e.g. F7's PLLI2S: one
+  // profile for 11025/22050/44100 Hz, another for 8000/16000/32000/48000/
+  // 96000 Hz) can pick the right one; boards that don't need this can just
+  // ignore the parameter.
+  void (*enableSAIClocks)(uint32_t sample_rate);
   void (*disableSAIClocks)();
   void (*enableDMAClocks)();
   void (*disableDMAClocks)();

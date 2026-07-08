@@ -17,7 +17,12 @@ static const PinConfig h743Pins[4] = {
 };
 
 /// Board-specific driver config for STM32H743
-STM32SAIDriverConfig SAI_CONFIG = {
+/// const gives this internal linkage per translation unit (C++ default for
+/// namespace-scope const globals) - without it, both STM32AudioSAI.cpp and
+/// this file's own .cpp (which each transitively include this header) would
+/// get their own externally-linked SAI_CONFIG and fail to link as a
+/// duplicate definition (matches the WB55 config's existing const usage).
+const STM32SAIDriverConfig SAI_CONFIG = {
     SAI1_Block_A,                            // sai_block_tx
     DMA2_Stream0,                            // dma_tx_instance
     DMA_REQUEST_SAI1_A,                      // dma_tx_request
@@ -28,7 +33,7 @@ STM32SAIDriverConfig SAI_CONFIG = {
     DMA2_Stream1_IRQn,                       // dma_rx_irq
     h743Pins,                                // defaultPins
     sizeof(h743Pins) / sizeof(PinConfig),    // numPins
-    []() { __HAL_RCC_SAI1_CLK_ENABLE(); },   // enableSAIClocks
+    [](uint32_t sample_rate) { __HAL_RCC_SAI1_CLK_ENABLE(); },   // enableSAIClocks
     []() { __HAL_RCC_SAI1_CLK_DISABLE(); },  // disableSAIClocks
     []() {
       // enableDMAClocks
