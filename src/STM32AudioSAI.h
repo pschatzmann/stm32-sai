@@ -85,7 +85,7 @@ class Buffer {
  * @code
  * SAI.setSampleRate(48000);
  * SAI.setChannels(2);
- * SAI.setPin(STM32AudioSAI::SCK, PB3, 6); // Arduino PinName, AF6
+ * SAI.setPins(/*bclk*/ PB13, /*ws*/ PB12, /*dout*/ PB15, /*din*/ -1, /*mclk*/ -1);
  * SAI.begin();
  * @endcode
  *
@@ -180,10 +180,13 @@ class STM32AudioSAI : public Stream {
   /// Get IO timeout in ms
   uint32_t getIOTimoutMs() const;
   /// Set pin configuration for a SAI signal using an Arduino PinName.
-  /// @return true when the supplied pin encoding is valid, false otherwise.
+  /// `af = -1` means AF auto-detection from the board candidate table during
+  /// `begin()`/GPIO configuration.
+  /// @return true when the supplied PinName encoding is valid, false otherwise.
   bool setPin(PinId id, PinName pin, int8_t af = -1);
   /// Backwards-compatible setter using legacy port/pin values.
-  /// @return true when the supplied pin encoding is valid, false otherwise.
+  /// @return true when the supplied legacy port/pin encoding is valid,
+  /// false otherwise.
   bool setPin(PinId id, int8_t port, int8_t pin, int8_t af = -1);
   /// ESP32-style convenience API: bclk, ws, dout, din, mclk.
   /// Use -1 for unused pins. Must be called before begin().

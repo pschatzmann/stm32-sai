@@ -50,6 +50,9 @@ void setup() {
   SAI.setChannels(2);
   SAI.setBitsPerSample(16);
   SAI.setProtocol(STM32AudioSAI::I2S);
+  // ESP32-style convenience mapping: bclk, ws, dout, din, mclk.
+  // Use -1 for unused pins. Must be called before begin().
+  // SAI.setPins(bclk, ws, dout, din, mclk);
   // Optional: override one of the board-supported SAI pins.
   // If the AF is omitted, the library resolves it from the board pin table.
   if (!SAI.begin()) {
@@ -97,7 +100,8 @@ which only fits when the frame is wide enough (`bitsPerSample * slotCount >
 - `setMaster(bool m)`
 - `setDataFormat(DataFormat f)` - `Standard`, `LeftJustified`, `RightJustified`
 - `setSlotCount(uint8_t count)` / `setActiveSlots(uint32_t mask)` - TDM frames with more slots than active channels
-- `bool setPin(PinId id, PinName pin, int8_t af = -1)` - validates the pin against the board's allowed SAI candidates and auto-detects the AF when omitted
+- `bool setPins(int bclk, int ws, int dout, int din = -1, int mclk = -1)` - ESP32-style convenience API (`-1` disables an unused pin)
+- `bool setPin(PinId id, PinName pin, int8_t af = -1)` - stores a pin override (`af = -1` means AF auto-detect during `begin()`)
 - `bool setPin(PinId id, int8_t port, int8_t pin, int8_t af = -1)` - legacy compatibility overload
 - `write(const uint8_t* buffer, size_t size)`
 - `readBytes(uint8_t* buffer, size_t size)`
@@ -110,6 +114,7 @@ which only fits when the frame is wide enough (`bitsPerSample * slotCount >
 ## Error Handling & Logging
 
 - All board drivers propagate errors from `configureGPIO()`; `begin()` returns `false` on failure
+- User pin overrides are checked against board candidate pin tables during `begin()` (GPIO configuration stage)
 - Diagnostics and warnings are logged via the singleton `Logger` (configurable log level, Print output)
 - DMA transfer timeout returns 0 if not completed in time
 
@@ -118,6 +123,16 @@ which only fits when the frame is wide enough (`bitsPerSample * slotCount >
 - Requires STM32 core for Arduino (STM32duino) and correct board selection
 - Ensure your board supports SAI/I2S hardware
 - Easily extensible for new STM32 variants: add a new board config and update the driver config table
+
+## Input-only microphone example
+
+For a typical I2S microphone (input only), pass `-1` for unused output pins:
+
+```cpp
+SAI.setMode(STM32AudioSAI::Input);
+SAI.setPins(/*bclk*/ PB13, /*ws*/ PB12, /*dout*/ -1, /*din*/ PB14, /*mclk*/ -1);
+SAI.begin();
+```
 
 ## License
 
