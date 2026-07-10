@@ -1,8 +1,9 @@
 #pragma once
+#include <Arduino.h>
 #include <stdint.h>
 
-/// Datatype for Pins: Use int16_t to allow -1 for "use default"
-using sai_pin_t = int16_t;  
+/// Datatype for Pins: use the Arduino core PinName encoding.
+using sai_pin_t = PinName;
 
 /// Pin identifiers for SAI signals. SD is the data pin used when TX/RX share
 /// a single SAI block (or for TX/output on boards with separate blocks).
@@ -12,9 +13,8 @@ using sai_pin_t = int16_t;
 enum class PinId { SCK, FS, SD, SD_RX, MCLK, NumPins };
 
 struct PinConfig {
-  int8_t port = -1;  ///< Port letter as ASCII ('A'=65, ...)
-  int8_t pin = -1;   ///< Pin number
+  PinName pin = NC;  ///< Arduino-style pin name, e.g. PA5
   int8_t af = -1;    ///< Alternate function
-  PinConfig(int8_t pt = -1, int8_t pn = -1, int8_t a = -1)
-      : port(pt), pin(pn), af(a) {}
+
+  PinConfig(PinName p = NC, int8_t a = -1) : pin(p), af(a) {}
 };

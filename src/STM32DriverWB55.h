@@ -18,11 +18,11 @@
 // ST's own BSP). Confirm against your board before relying on Input/Duplex
 // mode, and override with setPin(STM32AudioSAI::SD_RX, ...) if it's wrong.
 const PinConfig WB55_SAI_PINS[5] = {
-    {'A', 5, 13},  // SCK
-    {'A', 6, 13},  // FS
-    {'A', 7, 13},  // SD (TX/out, Block A)
-    {'B', 2, 13},  // SD_RX (RX/in, Block B) - UNVERIFIED, see note above
-    {'B', 9, 13}   // MCLK
+  {digitalPinToPinName(PA5), 13},  // SCK
+  {digitalPinToPinName(PA6), 13},  // FS
+  {digitalPinToPinName(PA7), 13},  // SD (TX/out, Block A)
+  {digitalPinToPinName(PB2), 13},  // SD_RX (RX/in, Block B) - UNVERIFIED, see note above
+  {digitalPinToPinName(PB9), 13}    // MCLK
 };
 
 // Board-specific driver config for STM32WB55 - TX on SAI1 Block A, RX on

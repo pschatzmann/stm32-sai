@@ -172,14 +172,20 @@ void STM32AudioSAI::setMode(Mode m) { mode = m; }
 STM32AudioSAI::Mode STM32AudioSAI::getMode() const { return mode; }
 void STM32AudioSAI::setIOTimoutMs(uint32_t ms) { ioTimeoutMs = ms; }
 uint32_t STM32AudioSAI::getIOTimoutMs() const { return ioTimeoutMs; }
-void STM32AudioSAI::setPin(PinId id, int8_t port, int8_t pin, int8_t af) {
-  size_t idx = static_cast<size_t>(id);
-  pins[idx].port = port;
-  pins[idx].pin = pin;
-  pins[idx].af = af;
+void STM32AudioSAI::setPin(PinId id, PinName pin, int8_t af) {
+  pins[static_cast<size_t>(id)] = PinConfig(pin, af);
 }
-int8_t STM32AudioSAI::getPinPort(PinId id) const { return pins[static_cast<size_t>(id)].port; }
-int8_t STM32AudioSAI::getPinNumber(PinId id) const { return pins[static_cast<size_t>(id)].pin; }
+void STM32AudioSAI::setPin(PinId id, int8_t port, int8_t pin, int8_t af) {
+  setPin(id, static_cast<PinName>(((port - 'A') << 4) | (pin & 0x0F)), af);
+}
+int8_t STM32AudioSAI::getPinPort(PinId id) const {
+  PinName pin = pins[static_cast<size_t>(id)].pin;
+  return pin == NC ? -1 : static_cast<int8_t>(STM_PORT(pin) + 'A');
+}
+int8_t STM32AudioSAI::getPinNumber(PinId id) const {
+  PinName pin = pins[static_cast<size_t>(id)].pin;
+  return pin == NC ? -1 : static_cast<int8_t>(STM_PIN(pin));
+}
 int8_t STM32AudioSAI::getPinAF(PinId id) const { return pins[static_cast<size_t>(id)].af; }
 bool STM32AudioSAI::isDMATransferComplete() const {
   return dmaRxTransferComplete && dmaTxTransferComplete;

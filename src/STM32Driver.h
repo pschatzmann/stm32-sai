@@ -174,28 +174,24 @@ class STM32SAIDriver {
           (i >= 0 && i < (int)(sizeof(i2sPinNames) / sizeof(i2sPinNames[0])))
               ? i2sPinNames[i]
               : "?";
-      PinConfig cfg = {-1, -1, -1};
+      PinConfig cfg;
       // Defensive: getPinConfig may not initialize all fields
       cfg = audio->getPinConfig(static_cast<PinId>(i));
-      if (cfg.port == -1 && config.defaultPins)
-        cfg.port = config.defaultPins[i].port;
-      if (cfg.pin == -1 && config.defaultPins)
-        cfg.pin = config.defaultPins[i].pin;
+      if (cfg.pin == NC && config.defaultPins) cfg = config.defaultPins[i];
       if (cfg.af == -1 && config.defaultPins) cfg.af = config.defaultPins[i].af;
-      // Print port as character if in valid range, else as integer
-      if (cfg.port >= 'A' && cfg.port <= 'Z') {
+      if (cfg.pin != NC && STM_VALID_PINNAME(cfg.pin)) {
         STM32AudioLogger::instance().infof(
-            "SAI Pin %s (%d): Port %c, Pin %d, AF %d", pinName, i, cfg.port,
-            cfg.pin, cfg.af);
+            "SAI Pin %s (%d): Port %c, Pin %d, AF %d", pinName, i,
+            static_cast<char>('A' + STM_PORT(cfg.pin)), STM_PIN(cfg.pin),
+            cfg.af);
       } else {
         STM32AudioLogger::instance().infof(
-            "SAI Pin %s (%d): Port %d (invalid), Pin %d, AF %d", pinName, i,
-            cfg.port, cfg.pin, cfg.af);
+            "SAI Pin %s (%d): invalid pin, AF %d", pinName, i, cfg.af);
       }
       GPIO_InitTypeDef GPIO_InitStruct = {0};
       GPIO_TypeDef* gpio_port = nullptr;
-      if (cfg.port >= 'A' && cfg.port <= 'Z') {
-        gpio_port = (GPIO_TypeDef*)(GPIOA_BASE + 0x400U * (cfg.port - 'A'));
+      if (cfg.pin != NC && STM_VALID_PINNAME(cfg.pin)) {
+        gpio_port = set_GPIO_Port_Clock(STM_PORT(cfg.pin));
       }
       if (gpio_port) {
         // These SAI pins are never touched via Arduino pinMode()/digitalWrite(),
@@ -203,8 +199,7 @@ class STM32SAIDriver {
         // set_GPIO_Port_Clock() in SrcWrapper's PortNames.c) - without this,
         // HAL_GPIO_Init below silently writes to a clock-gated peripheral and
         // the pin never actually switches to AF mode.
-        set_GPIO_Port_Clock(cfg.port - 'A');
-        GPIO_InitStruct.Pin = 1U << cfg.pin;
+        GPIO_InitStruct.Pin = STM_GPIO_PIN(cfg.pin);
         GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
         GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;

@@ -85,7 +85,7 @@ class Buffer {
  * @code
  * SAI.setSampleRate(48000);
  * SAI.setChannels(2);
- * SAI.setPin(STM32AudioSAI::SCK, 'B', 3, 6); // Port B, Pin 3, AF6
+ * SAI.setPin(STM32AudioSAI::SCK, PB3, 6); // Arduino PinName, AF6
  * SAI.begin();
  * @endcode
  *
@@ -179,7 +179,9 @@ class STM32AudioSAI : public Stream {
   void setIOTimoutMs(uint32_t ms);
   /// Get IO timeout in ms
   uint32_t getIOTimoutMs() const;
-  /// Set pin configuration for a SAI signal
+  /// Set pin configuration for a SAI signal using an Arduino PinName.
+  void setPin(PinId id, PinName pin, int8_t af = -1);
+  /// Backwards-compatible setter using legacy port/pin values.
   void setPin(PinId id, int8_t port, int8_t pin, int8_t af = -1);
   /// Get pin port for a SAI signal
   int8_t getPinPort(PinId id) const;

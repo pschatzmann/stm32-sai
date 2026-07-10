@@ -13,11 +13,11 @@
 // PI4 (MCLK)/PI5 (SCK)/PI6 (SD)/PI7 (FS); Block B = RX/in, SD on PG10.
 // All AF10 (GPIO_AF10_SAI2).
 static const PinConfig F723_SAI_PINS[5] = {
-    {'I', 5, 10},   // SCK
-    {'I', 7, 10},   // FS
-    {'I', 6, 10},   // SD (TX/out)
-    {'G', 10, 10},  // SD_RX (RX/in, Block B)
-    {'I', 4, 10}    // MCLK
+  {digitalPinToPinName(PI5), 10},   // SCK
+  {digitalPinToPinName(PI7), 10},   // FS
+  {digitalPinToPinName(PI6), 10},   // SD (TX/out)
+  {digitalPinToPinName(PG10), 10},  // SD_RX (RX/in, Block B)
+  {digitalPinToPinName(PI4), 10}    // MCLK
 };
 
 /// Board-specific driver config for the STM32F723E-Discovery (SAI2, TX and

@@ -15,11 +15,11 @@
 /// before relying on Input/Duplex mode, and override with
 /// setPin(STM32AudioSAI::SD_RX, ...) if it's wrong.
 static const PinConfig h743Pins[5] = {
-    {'E', 2, 6},  // SCK
-    {'E', 3, 6},  // FS
-    {'E', 4, 6},  // SD (TX/out, Block A)
-    {'E', 5, 6},  // SD_RX (RX/in, Block B) - UNVERIFIED, see note above
-    {'E', 6, 6}   // MCLK
+  {digitalPinToPinName(PE2), 6},  // SCK
+  {digitalPinToPinName(PE3), 6},  // FS
+  {digitalPinToPinName(PE4), 6},  // SD (TX/out, Block A)
+  {digitalPinToPinName(PE5), 6},  // SD_RX (RX/in, Block B) - UNVERIFIED, see note above
+  {digitalPinToPinName(PE6), 6}   // MCLK
 };
 
 /// Board-specific driver config for STM32H743
