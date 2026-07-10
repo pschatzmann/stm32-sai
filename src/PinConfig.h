@@ -5,6 +5,10 @@
 /// Datatype for Pins: use the Arduino core PinName encoding.
 using sai_pin_t = PinName;
 
+/// Special AF marker meaning: this pin is intentionally disabled/unused.
+/// `-1` remains reserved for "auto-detect AF from board candidate table".
+constexpr int8_t SAI_PIN_DISABLED_AF = -2;
+
 /// Pin identifiers for SAI signals. SD is the data pin used when TX/RX share
 /// a single SAI block (or for TX/output on boards with separate blocks).
 /// SD_RX is only needed on boards where TX and RX are separate SAI blocks

@@ -1,5 +1,11 @@
 #pragma once
 #include "PinConfig.h"
+
+struct SAIPinCandidate {
+  PinId id;
+  PinConfig config;
+};
+
 /**
  * @brief Configuration for STM32SAIDriver.
  * Holds DMA instance, DMA request, and default pin configuration for a board.
@@ -17,7 +23,9 @@ struct STM32SAIDriverConfig {
   IRQn_Type dma_rx_irq;
   // Pin config
   const PinConfig* defaultPins;
-  int numPins = 4;
+  int numPins = static_cast<int>(PinId::NumPins);
+  const SAIPinCandidate* allowedPins = nullptr;
+  int numAllowedPins = 0;
   // Board-specific clock enable/disable lambdas. enableSAIClocks takes the
   // target sample rate in Hz so boards whose SAI clock source needs a
   // different PLL profile per sample-rate family (e.g. F7's PLLI2S: one

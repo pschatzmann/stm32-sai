@@ -32,6 +32,8 @@ This library currently supports:
 
 Other STM32 boards with SAI/I2S hardware can be supported by adding a board config and updating the driver config table. Contributions for additional boards are welcome!
 
+For porting details, see [ADDING_NEW_VARIANT.md](ADDING_NEW_VARIANT.md).
+
 ## Getting Started
 
 1. Copy or clone this library into your Arduino `libraries` folder.
@@ -48,7 +50,8 @@ void setup() {
   SAI.setChannels(2);
   SAI.setBitsPerSample(16);
   SAI.setProtocol(STM32AudioSAI::I2S);
-  SAI.setPin(STM32AudioSAI::SCK, PB3, 6); // AF6
+  // Optional: override one of the board-supported SAI pins.
+  // If the AF is omitted, the library resolves it from the board pin table.
   if (!SAI.begin()) {
     STM32AudioLogger::instance().error("SAI initialization failed!");
     while (1); // Halt on error
@@ -94,8 +97,8 @@ which only fits when the frame is wide enough (`bitsPerSample * slotCount >
 - `setMaster(bool m)`
 - `setDataFormat(DataFormat f)` - `Standard`, `LeftJustified`, `RightJustified`
 - `setSlotCount(uint8_t count)` / `setActiveSlots(uint32_t mask)` - TDM frames with more slots than active channels
-- `setPin(PinId id, PinName pin, int8_t af = -1)`
-- `setPin(PinId id, int8_t port, int8_t pin, int8_t af = -1)` - legacy compatibility overload
+- `bool setPin(PinId id, PinName pin, int8_t af = -1)` - validates the pin against the board's allowed SAI candidates and auto-detects the AF when omitted
+- `bool setPin(PinId id, int8_t port, int8_t pin, int8_t af = -1)` - legacy compatibility overload
 - `write(const uint8_t* buffer, size_t size)`
 - `readBytes(uint8_t* buffer, size_t size)`
 - `setIOTimoutMs(uint32_t ms)`

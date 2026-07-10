@@ -172,11 +172,39 @@ void STM32AudioSAI::setMode(Mode m) { mode = m; }
 STM32AudioSAI::Mode STM32AudioSAI::getMode() const { return mode; }
 void STM32AudioSAI::setIOTimoutMs(uint32_t ms) { ioTimeoutMs = ms; }
 uint32_t STM32AudioSAI::getIOTimoutMs() const { return ioTimeoutMs; }
-void STM32AudioSAI::setPin(PinId id, PinName pin, int8_t af) {
+bool STM32AudioSAI::setPin(PinId id, PinName pin, int8_t af) {
+  if (pin == NC || !STM_VALID_PINNAME(pin)) {
+    STM32AudioLogger::instance().error("setPin: invalid pin");
+    return false;
+  }
   pins[static_cast<size_t>(id)] = PinConfig(pin, af);
+  return true;
 }
-void STM32AudioSAI::setPin(PinId id, int8_t port, int8_t pin, int8_t af) {
-  setPin(id, static_cast<PinName>(((port - 'A') << 4) | (pin & 0x0F)), af);
+bool STM32AudioSAI::setPin(PinId id, int8_t port, int8_t pin, int8_t af) {
+  if (port < 'A' || port > 'K' || pin < 0 || pin > 15) {
+    STM32AudioLogger::instance().error("setPin: invalid legacy port/pin");
+    return false;
+  }
+  return setPin(id, static_cast<PinName>(((port - 'A') << 4) | (pin & 0x0F)), af);
+}
+
+bool STM32AudioSAI::setPins(int bclk, int ws, int dout, int din, int mclk) {
+  auto applyArduinoPin = [&](PinId id, int pin) -> bool {
+    if (pin < 0) {
+      // Explicitly disabled/unused pin: do not fall back to board defaults.
+      pins[static_cast<size_t>(id)] = PinConfig(NC, SAI_PIN_DISABLED_AF);
+      return true;
+    }
+    return setPin(id, digitalPinToPinName(pin), -1);
+  };
+
+  bool ok = true;
+  ok = applyArduinoPin(PinId::SCK, bclk) && ok;
+  ok = applyArduinoPin(PinId::FS, ws) && ok;
+  ok = applyArduinoPin(PinId::SD, dout) && ok;
+  ok = applyArduinoPin(PinId::SD_RX, din) && ok;
+  ok = applyArduinoPin(PinId::MCLK, mclk) && ok;
+  return ok;
 }
 int8_t STM32AudioSAI::getPinPort(PinId id) const {
   PinName pin = pins[static_cast<size_t>(id)].pin;

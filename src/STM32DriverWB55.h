@@ -7,22 +7,35 @@
 #include "stm32wbxx_hal.h"
 
 // Pin configuration for STM32WB55 SAI1 Block A (TX) / Block B (RX).
-// SCK/FS/SD/MCLK (Block A) are the library's original pins, corrected here
-// from AF6 to AF13 - AF6 does not map to SAI1 on this chip (stm32wbxx_hal_
-// gpio_ex.h only defines GPIO_AF13_SAI1; AF6 is MCO/LSCO/RF_DTBx), so these
-// pins would not actually have been routed to the SAI peripheral before.
-// SD_RX (Block B) is a BEST-EFFORT PLACEHOLDER, not verified against any
-// datasheet/schematic/reference board - STM32WB55's actual SAI1_SD_B pin
-// depends on the specific package, and no P-NUCLEO-WB55 audio BSP exists to
-// cross-check against (unlike the F723 pins, which were confirmed against
-// ST's own BSP). Confirm against your board before relying on Input/Duplex
-// mode, and override with setPin(STM32AudioSAI::SD_RX, ...) if it's wrong.
-const PinConfig WB55_SAI_PINS[5] = {
-  {digitalPinToPinName(PA5), 13},  // SCK
-  {digitalPinToPinName(PA6), 13},  // FS
-  {digitalPinToPinName(PA7), 13},  // SD (TX/out, Block A)
-  {digitalPinToPinName(PB2), 13},  // SD_RX (RX/in, Block B) - UNVERIFIED, see note above
-  {digitalPinToPinName(PB9), 13}    // MCLK
+// These defaults and allowed candidates are derived from the ST CubeMX pin
+// database. The earlier defaults in this header had the correct AF but not
+// the correct signal-to-pin role mapping.
+const PinConfig WB55_SAI_DEFAULT_PINS[5] = {
+  {digitalPinToPinName(PA8), 13},   // SCK
+  {digitalPinToPinName(PA9), 13},   // FS
+  {digitalPinToPinName(PA10), 13},  // SD (TX/out, Block A)
+  {digitalPinToPinName(PA5), 13},   // SD_RX (RX/in, Block B)
+  {digitalPinToPinName(PA3), 13}    // MCLK
+};
+
+static const SAIPinCandidate WB55_SAI_ALLOWED_PINS[] = {
+    {PinId::SCK, {digitalPinToPinName(PA8), 13}},
+    {PinId::SCK, {digitalPinToPinName(PB10), 13}},
+    {PinId::SCK, {digitalPinToPinName(PB13), 13}},
+    {PinId::FS, {digitalPinToPinName(PA9), 13}},
+    {PinId::FS, {digitalPinToPinName(PB9), 13}},
+    {PinId::FS, {digitalPinToPinName(PB12), 13}},
+    {PinId::SD, {digitalPinToPinName(PA10), 13}},
+    {PinId::SD, {digitalPinToPinName(PB15), 13}},
+    {PinId::SD, {digitalPinToPinName(PC3), 13}},
+    {PinId::SD, {digitalPinToPinName(PD6), 13}},
+    {PinId::SD_RX, {digitalPinToPinName(PA5), 13}},
+    {PinId::SD_RX, {digitalPinToPinName(PA13), 13}},
+    {PinId::SD_RX, {digitalPinToPinName(PB5), 13}},
+    {PinId::MCLK, {digitalPinToPinName(PA3), 13}},
+    {PinId::MCLK, {digitalPinToPinName(PB8), 13}},
+    {PinId::MCLK, {digitalPinToPinName(PB14), 13}},
+    {PinId::MCLK, {digitalPinToPinName(PE2), 13}},
 };
 
 // Board-specific driver config for STM32WB55 - TX on SAI1 Block A, RX on
@@ -37,8 +50,10 @@ const STM32SAIDriverConfig SAI_CONFIG = {
   DMA1_Channel2,       // dma_rx_instance
   DMA_REQUEST_SAI1_B,  // dma_rx_request
   DMA1_Channel2_IRQn,  // dma_rx_irq
-  WB55_SAI_PINS,       // defaultPins
-  sizeof(WB55_SAI_PINS) / sizeof(PinConfig),  // numPins
+  WB55_SAI_DEFAULT_PINS,       // defaultPins
+  sizeof(WB55_SAI_DEFAULT_PINS) / sizeof(PinConfig),  // numPins
+  WB55_SAI_ALLOWED_PINS,       // allowedPins
+  sizeof(WB55_SAI_ALLOWED_PINS) / sizeof(SAIPinCandidate),  // numAllowedPins
     [](uint32_t sample_rate) {
       // enableSAIClocks: WB55 routes SAI1 straight from the main PLL with no
       // per-sample-rate divider selection, so sample_rate is unused here.

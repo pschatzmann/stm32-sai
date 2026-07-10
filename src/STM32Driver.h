@@ -167,6 +167,19 @@ class STM32SAIDriver {
     static const char* i2sPinNames[static_cast<size_t>(PinId::NumPins)] = {
         "SCK", "FS", "SD", "SD_RX", "MCLK"};
 
+    auto findAllowedPin = [&](PinId id, PinName pin,
+                              int8_t af) -> const SAIPinCandidate* {
+      if (!config.allowedPins || config.numAllowedPins <= 0 || pin == NC) {
+        return nullptr;
+      }
+      for (int idx = 0; idx < config.numAllowedPins; ++idx) {
+        const SAIPinCandidate& candidate = config.allowedPins[idx];
+        if (candidate.id != id || candidate.config.pin != pin) continue;
+        if (af == -1 || candidate.config.af == af) return &candidate;
+      }
+      return nullptr;
+    };
+
     bool success = true;
     for (int i = 0; i < config.numPins; ++i) {
       // Defensive: check bounds for i2sPinNames
@@ -177,8 +190,39 @@ class STM32SAIDriver {
       PinConfig cfg;
       // Defensive: getPinConfig may not initialize all fields
       cfg = audio->getPinConfig(static_cast<PinId>(i));
-      if (cfg.pin == NC && config.defaultPins) cfg = config.defaultPins[i];
-      if (cfg.af == -1 && config.defaultPins) cfg.af = config.defaultPins[i].af;
+      const bool isExplicitlyDisabled =
+          (cfg.pin == NC && cfg.af == SAI_PIN_DISABLED_AF);
+      if (!isExplicitlyDisabled && cfg.pin == NC && config.defaultPins) {
+        cfg = config.defaultPins[i];
+      }
+      if (!isExplicitlyDisabled && cfg.af == -1 && config.defaultPins) {
+        cfg.af = config.defaultPins[i].af;
+      }
+
+      if (isExplicitlyDisabled) {
+        STM32AudioLogger::instance().infof(
+            "SAI Pin %s (%d): disabled", pinName, i);
+        continue;
+      }
+
+      PinId pinId = static_cast<PinId>(i);
+      const SAIPinCandidate* allowedPin = findAllowedPin(pinId, cfg.pin, cfg.af);
+      if (!allowedPin && cfg.af == -1) {
+        allowedPin = findAllowedPin(pinId, cfg.pin, -1);
+      }
+      if (cfg.pin != NC && config.allowedPins && config.numAllowedPins > 0) {
+        if (!allowedPin) {
+          STM32AudioLogger::instance().errorf(
+              "SAI Pin %s (%d): pin/AF combination is not valid for this board",
+              pinName, i);
+          success = false;
+          continue;
+        }
+        if (cfg.af == -1) {
+          cfg.af = allowedPin->config.af;
+        }
+      }
+
       if (cfg.pin != NC && STM_VALID_PINNAME(cfg.pin)) {
         STM32AudioLogger::instance().infof(
             "SAI Pin %s (%d): Port %c, Pin %d, AF %d", pinName, i,
@@ -193,7 +237,7 @@ class STM32SAIDriver {
       if (cfg.pin != NC && STM_VALID_PINNAME(cfg.pin)) {
         gpio_port = set_GPIO_Port_Clock(STM_PORT(cfg.pin));
       }
-      if (gpio_port) {
+      if (gpio_port && cfg.af >= 0) {
         // These SAI pins are never touched via Arduino pinMode()/digitalWrite(),
         // which is normally what enables a port's GPIO clock on this core (see
         // set_GPIO_Port_Clock() in SrcWrapper's PortNames.c) - without this,
@@ -207,7 +251,7 @@ class STM32SAIDriver {
         HAL_GPIO_Init(gpio_port, &GPIO_InitStruct);
       } else {
         STM32AudioLogger::instance().errorf(
-            "Invalid GPIO port for SAI Pin %s (%d)", pinName, i);
+            "Invalid GPIO port or AF for SAI Pin %s (%d)", pinName, i);
         success = false;
       }
     }

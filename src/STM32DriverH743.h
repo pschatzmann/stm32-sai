@@ -9,17 +9,27 @@
 #define SAI_SUPPORT 1
 
 /// Pin configuration for STM32H743 SAI1 Block A (TX) / Block B (RX).
-/// SCK/FS/SD/MCLK (Block A) are the library's original, previously TX-only
-/// pins. SD_RX (Block B) is a BEST-EFFORT PLACEHOLDER, not verified against
-/// any datasheet/schematic/reference board - confirm against your board
-/// before relying on Input/Duplex mode, and override with
-/// setPin(STM32AudioSAI::SD_RX, ...) if it's wrong.
-static const PinConfig h743Pins[5] = {
-  {digitalPinToPinName(PE2), 6},  // SCK
-  {digitalPinToPinName(PE3), 6},  // FS
-  {digitalPinToPinName(PE4), 6},  // SD (TX/out, Block A)
-  {digitalPinToPinName(PE5), 6},  // SD_RX (RX/in, Block B) - UNVERIFIED, see note above
-  {digitalPinToPinName(PE6), 6}   // MCLK
+/// The prior defaults in this header were shifted one role off; these values
+/// match the ST pin database for SAI1.
+static const PinConfig H743_SAI_DEFAULT_PINS[5] = {
+  {digitalPinToPinName(PE5), 6},  // SCK
+  {digitalPinToPinName(PE4), 6},  // FS
+  {digitalPinToPinName(PE6), 6},  // SD (TX/out, Block A)
+  {digitalPinToPinName(PE3), 6},  // SD_RX (RX/in, Block B)
+  {digitalPinToPinName(PE2), 6}   // MCLK
+};
+
+static const SAIPinCandidate H743_SAI_ALLOWED_PINS[] = {
+    {PinId::SCK, {digitalPinToPinName(PE5), 6}},
+    {PinId::FS, {digitalPinToPinName(PE4), 6}},
+    {PinId::SD, {digitalPinToPinName(PB2), 6}},
+    {PinId::SD, {digitalPinToPinName(PC1), 6}},
+    {PinId::SD, {digitalPinToPinName(PD6), 6}},
+    {PinId::SD, {digitalPinToPinName(PE6), 6}},
+    {PinId::SD_RX, {digitalPinToPinName(PE3), 6}},
+    {PinId::SD_RX, {digitalPinToPinName(PF6), 6}},
+    {PinId::MCLK, {digitalPinToPinName(PE2), 6}},
+    {PinId::MCLK, {digitalPinToPinName(PG7), 6}},
 };
 
 /// Board-specific driver config for STM32H743
@@ -37,8 +47,10 @@ const STM32SAIDriverConfig SAI_CONFIG = {
     DMA2_Stream1,                            // dma_rx_instance
     DMA_REQUEST_SAI1_B,                      // dma_rx_request
     DMA2_Stream1_IRQn,                       // dma_rx_irq
-    h743Pins,                                // defaultPins
-    sizeof(h743Pins) / sizeof(PinConfig),    // numPins
+    H743_SAI_DEFAULT_PINS,                   // defaultPins
+    sizeof(H743_SAI_DEFAULT_PINS) / sizeof(PinConfig),  // numPins
+    H743_SAI_ALLOWED_PINS,                   // allowedPins
+    sizeof(H743_SAI_ALLOWED_PINS) / sizeof(SAIPinCandidate),  // numAllowedPins
     [](uint32_t sample_rate) { __HAL_RCC_SAI1_CLK_ENABLE(); },   // enableSAIClocks
     []() { __HAL_RCC_SAI1_CLK_DISABLE(); },  // disableSAIClocks
     []() {

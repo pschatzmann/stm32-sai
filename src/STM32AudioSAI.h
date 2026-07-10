@@ -180,9 +180,14 @@ class STM32AudioSAI : public Stream {
   /// Get IO timeout in ms
   uint32_t getIOTimoutMs() const;
   /// Set pin configuration for a SAI signal using an Arduino PinName.
-  void setPin(PinId id, PinName pin, int8_t af = -1);
+  /// @return true when the supplied pin encoding is valid, false otherwise.
+  bool setPin(PinId id, PinName pin, int8_t af = -1);
   /// Backwards-compatible setter using legacy port/pin values.
-  void setPin(PinId id, int8_t port, int8_t pin, int8_t af = -1);
+  /// @return true when the supplied pin encoding is valid, false otherwise.
+  bool setPin(PinId id, int8_t port, int8_t pin, int8_t af = -1);
+  /// ESP32-style convenience API: bclk, ws, dout, din, mclk.
+  /// Use -1 for unused pins. Must be called before begin().
+  bool setPins(int bclk, int ws, int dout, int din = -1, int mclk = -1);
   /// Get pin port for a SAI signal
   int8_t getPinPort(PinId id) const;
   /// Get pin number for a SAI signal

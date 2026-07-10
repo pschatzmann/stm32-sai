@@ -12,12 +12,27 @@
 // Matches the ST BSP (stm32f723e_discovery_audio.h): Block A = TX/out on
 // PI4 (MCLK)/PI5 (SCK)/PI6 (SD)/PI7 (FS); Block B = RX/in, SD on PG10.
 // All AF10 (GPIO_AF10_SAI2).
-static const PinConfig F723_SAI_PINS[5] = {
+static const PinConfig F723_SAI_DEFAULT_PINS[5] = {
   {digitalPinToPinName(PI5), 10},   // SCK
   {digitalPinToPinName(PI7), 10},   // FS
   {digitalPinToPinName(PI6), 10},   // SD (TX/out)
   {digitalPinToPinName(PG10), 10},  // SD_RX (RX/in, Block B)
   {digitalPinToPinName(PI4), 10}    // MCLK
+};
+
+static const SAIPinCandidate F723_SAI_ALLOWED_PINS[] = {
+    {PinId::SCK, {digitalPinToPinName(PD13), 10}},
+    {PinId::SCK, {digitalPinToPinName(PI5), 10}},
+    {PinId::FS, {digitalPinToPinName(PD12), 10}},
+    {PinId::FS, {digitalPinToPinName(PI7), 10}},
+    {PinId::SD, {digitalPinToPinName(PD11), 10}},
+    {PinId::SD, {digitalPinToPinName(PI6), 10}},
+    {PinId::SD_RX, {digitalPinToPinName(PA0), 10}},
+    {PinId::SD_RX, {digitalPinToPinName(PE11), 10}},
+    {PinId::SD_RX, {digitalPinToPinName(PF11), 10}},
+    {PinId::SD_RX, {digitalPinToPinName(PG10), 10}},
+    {PinId::MCLK, {digitalPinToPinName(PE0), 10}},
+    {PinId::MCLK, {digitalPinToPinName(PI4), 10}},
 };
 
 /// Board-specific driver config for the STM32F723E-Discovery (SAI2, TX and
@@ -38,8 +53,10 @@ const STM32SAIDriverConfig SAI_CONFIG = {
     DMA2_Stream6,                            // dma_rx_instance
     DMA_CHANNEL_3,                           // dma_rx_request (-> Init.Channel)
     DMA2_Stream6_IRQn,                       // dma_rx_irq
-    F723_SAI_PINS,                           // defaultPins
-    sizeof(F723_SAI_PINS) / sizeof(PinConfig),  // numPins
+    F723_SAI_DEFAULT_PINS,                       // defaultPins
+    sizeof(F723_SAI_DEFAULT_PINS) / sizeof(PinConfig),  // numPins
+    F723_SAI_ALLOWED_PINS,                       // allowedPins
+    sizeof(F723_SAI_ALLOWED_PINS) / sizeof(SAIPinCandidate),  // numAllowedPins
     [](uint32_t sample_rate) {
       // enableSAIClocks: route SAI2 from PLLI2S, per the ST BSP's
       // BSP_AUDIO_OUT_ClockConfig(). The BSP uses one PLLI2S profile for the
