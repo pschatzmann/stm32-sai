@@ -5,9 +5,18 @@
 // Global driver instance (configured in board-specific header)
 STM32SAIDriver driver{SAI_CONFIG};
 
-// DMA transfer complete flags (set in driver-specific DMA interrupt handler)
-volatile bool dmaTxTransferComplete = false;
-volatile bool dmaRxTransferComplete = false;
+// DMA transfer complete flags (set in driver-specific DMA interrupt handler).
+// Must start true: it really means "no transfer currently in flight", and
+// write()/read() reject the call outright when it's false - starting it
+// false meant the very first write()/read() ever made (before any transfer
+// had a chance to complete and set it true) was always rejected, forever,
+// since nothing else ever primes it back to true.
+volatile bool dmaTxTransferComplete = true;
+volatile bool dmaRxTransferComplete = true;
+volatile uint32_t saiLastErrorCode = 0;
+volatile uint32_t saiTxCpltCount = 0;
+volatile uint32_t saiTxErrorCount = 0;
+volatile int8_t saiTxFreeHalf = -1;
 
 // RingBuffer instances are now members of STM32AudioSAI
 
@@ -18,8 +27,12 @@ bool STM32AudioSAI::begin() {
     STM32AudioLogger::instance().error("GPIO configuration failed");
     return false;
   }
-  // setup tx buffer with consistent block size for DMA writes based on buffer
-  // ensure block size is a multiple of frame size
+  // TEMP DIAGNOSTIC: reverted to the old channels-based frameSize (matching
+  // yesterday's working baseline) to isolate whether this change (or the
+  // write() padding below) is interacting with the WM8994 register-write
+  // regression - unclear why either would, since both only run after/during
+  // playback, well after WM8994::init() has already run, but ActiveFrameLength
+  // was already ruled out by direct A/B test so this is the next suspect.
   int frameSize = channels * (bitsPerSample / 8);
   size_t dmaBlockSize = txBuffer.getBufferSize() / frameSize * frameSize;
   txBuffer.resize(dmaBlockSize);
@@ -52,11 +65,40 @@ size_t STM32AudioSAI::write(uint8_t b) {
 }
 
 size_t STM32AudioSAI::write(const uint8_t* buffer, size_t size) {
-  size_t written = 0;
-  for (int i = 0; i < size; ++i) {
-    written += write(buffer[i]);
+  uint8_t bytesPerSample = bitsPerSample / 8;
+  uint8_t activeBytes = channels * bytesPerSample;
+  uint8_t slotCountVal = getSlotCount();
+
+  if (slotCountVal <= channels || activeBytes == 0) {
+    // plain case (every board except TDM-wired ones like the F723
+    // Discovery's WM8994): unchanged pass-through behavior.
+    size_t written = 0;
+    for (size_t i = 0; i < size; ++i) {
+      written += write(buffer[i]);
+    }
+    return written;
   }
-  return written;
+
+  // TDM padding: the SAI hardware pulls one FIFO word per *active* slot,
+  // every frame. If we only ever feed `channels` real samples per frame,
+  // the extra slots silently "steal" every-other real sample across slot
+  // positions instead of getting silence, starving the real channels to
+  // half their intended sample rate (audible as a distorted/aliased
+  // signal) - insert zero bytes for the inactive slots so every hardware
+  // frame gets a full, fresh set of samples. Returns the number of *input*
+  // bytes actually consumed (excludes the padding bytes it also wrote).
+  size_t consumed = 0;
+  uint8_t paddedBytes = slotCountVal * bytesPerSample;
+  while (consumed + activeBytes <= size) {
+    for (uint8_t b = 0; b < activeBytes; ++b) {
+      if (write(buffer[consumed + b]) == 0) return consumed;
+    }
+    for (uint8_t b = activeBytes; b < paddedBytes; ++b) {
+      if (write((uint8_t)0) == 0) return consumed;
+    }
+    consumed += activeBytes;
+  }
+  return consumed;
 }
 
 void STM32AudioSAI::flush() {
@@ -68,14 +110,45 @@ void STM32AudioSAI::flush() {
 }
 
 size_t STM32AudioSAI::readBytes(uint8_t* buffer, size_t size) {
-  // use consistent block size for DMA reads based on buffer size, channels, and
-  // bits per sample
-  size_t dmaBlockSize =
-      rxBuffer.getBufferSize() / 4 * channels * (bitsPerSample / 8);
-  while (rxBuffer.availableForWrite() >= dmaBlockSize) {
-    driver.read(this, (void*)(rxBuffer.data() + rxBuffer.available()),
-                dmaBlockSize);
-    rxBuffer.advanceWriteIndex(dmaBlockSize);
+  uint8_t bytesPerSample = bitsPerSample / 8;
+  uint8_t activeBytes = channels * bytesPerSample;
+  uint8_t slotCountVal = getSlotCount();
+
+  if (slotCountVal <= channels || activeBytes == 0) {
+    // plain case (every board except TDM-wired ones with more slots than
+    // active channels, e.g. the F723 Discovery's WM8994): unchanged
+    // pass-through behavior, also covers the common "N-channel TDM device"
+    // case where slot count == channel count.
+    size_t dmaBlockSize = rxBuffer.getBufferSize() / 4 * activeBytes;
+    while (rxBuffer.availableForWrite() >= dmaBlockSize) {
+      driver.read(this, (void*)(rxBuffer.data() + rxBuffer.available()),
+                  dmaBlockSize);
+      rxBuffer.advanceWriteIndex(dmaBlockSize);
+    }
+    return rxBuffer.readBytes(buffer, size);
+  }
+
+  // TDM slot stripping: mirrors write()'s padding above. The SAI hardware
+  // moves one FIFO word per *frame slot*, active or not (verified for TX on
+  // the F723 Discovery's WM8994; assumed symmetric here for RX, since both
+  // directions share the same frame/slot register configuration), so a raw
+  // DMA block is slotCount-wide per frame - pull that raw, slotCount-wide
+  // data into a scratch buffer, then keep only the first `channels` slots'
+  // worth of bytes from every frame.
+  uint8_t paddedBytes = slotCountVal * bytesPerSample;
+  size_t framesPerBlock = rxBuffer.getBufferSize() / 4 / activeBytes;
+  if (framesPerBlock == 0) framesPerBlock = 1;
+  size_t rawBlockSize = framesPerBlock * paddedBytes;
+  if (rxRawBuffer.size() != rawBlockSize) rxRawBuffer.resize(rawBlockSize);
+
+  size_t activeBlockSize = framesPerBlock * activeBytes;
+  while (rxBuffer.availableForWrite() >= activeBlockSize) {
+    driver.read(this, rxRawBuffer.data(), rawBlockSize);
+    for (size_t f = 0; f < framesPerBlock; ++f) {
+      memcpy((void*)(rxBuffer.data() + rxBuffer.available()),
+             rxRawBuffer.data() + f * paddedBytes, activeBytes);
+      rxBuffer.advanceWriteIndex(activeBytes);
+    }
   }
   return rxBuffer.readBytes(buffer, size);
 }

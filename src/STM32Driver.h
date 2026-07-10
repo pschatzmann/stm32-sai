@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <string.h>
+#include <vector>
 
 #include "DriverConfig.h"
 #include "PinConfig.h"
@@ -8,6 +10,10 @@
 
 extern DMA_HandleTypeDef* hdma_sai_tx;
 extern DMA_HandleTypeDef* hdma_sai_rx;
+// -1 = neither half of the circular TX buffer is free yet; 0/1 = that half
+// was just vacated by the half-complete/full-complete DMA callback (see
+// STM32DriverF723.cpp) and is ready for write() to refill.
+extern volatile int8_t saiTxFreeHalf;
 
 /**
  * @brief STM32SAIDriver provides SAI and DMA initialization, configuration, and
@@ -41,10 +47,25 @@ class STM32SAIDriver {
    */
   bool initSAI(STM32AudioSAI* audio) {
     if (p_hsai_out != p_hsai_in) {
-      STM32AudioLogger::instance().debug(
-          "initSAI: Initializing TX and RX separately");
-      bool rctx = initSAICommon(p_hsai_out, config.sai_block_tx, audio, true);
-      bool rcrx = initSAICommon(p_hsai_in, config.sai_block_rx, audio, false);
+      // Only touch the block(s) the requested mode actually needs - matches
+      // initDMA() below, which already gates on getMode(). Previously this
+      // unconditionally initialized RX (Block B) as an independent SAI_MODEMASTER_RX
+      // even for Output-only use, on boards (like the F723 Discovery) where
+      // TX/RX are separate SAI blocks: that block's clock generator got
+      // enabled and left running with no GPIO ever routed to its pins
+      // (configureGPIO() only wires up the pins the *used* direction needs),
+      // an unnecessary and potentially interfering half-configured block.
+      bool rctx = true, rcrx = true;
+      if (audio->getMode() == STM32AudioSAI::Output ||
+          audio->getMode() == STM32AudioSAI::Duplex) {
+        STM32AudioLogger::instance().debug("initSAI: Initializing TX");
+        rctx = initSAICommon(p_hsai_out, config.sai_block_tx, audio, true);
+      }
+      if (audio->getMode() == STM32AudioSAI::Input ||
+          audio->getMode() == STM32AudioSAI::Duplex) {
+        STM32AudioLogger::instance().debug("initSAI: Initializing RX");
+        rcrx = initSAICommon(p_hsai_in, config.sai_block_rx, audio, false);
+      }
       return rctx && rcrx;
     } else {
       STM32AudioLogger::instance().debug(
@@ -229,28 +250,61 @@ class STM32SAIDriver {
    */
   size_t write(STM32AudioSAI* audio, const void* buffer, size_t size) {
     STM32AudioLogger::instance().debugf("write: %d", (int)size);
-    if (!dmaTxTransferComplete) {
-      STM32AudioLogger::instance().warn(
-          "HAL_SAI_Transmit_DMA called while previous transfer still in "
-          "progress");
-      return 0;
+
+    if (!txCircStarted) {
+      // First chunk: build a 2x buffer (one half per ping-pong slot),
+      // duplicate this first chunk into both halves (so the second half
+      // has *something* sane queued before its own refill ever lands),
+      // and kick off a single CIRCULAR transfer that then runs
+      // indefinitely - later chunks just refill whichever half the
+      // half/full-complete callbacks mark free, they never start a new
+      // transfer.
+      txCircHalfBytes = size;
+      txCircBuf.assign(size * 2, 0);
+      memcpy(txCircBuf.data(), buffer, size);
+      memcpy(txCircBuf.data() + size, buffer, size);
+      saiTxFreeHalf = -1;
+      uint32_t nwords = (size * 2) / (audio->getBitsPerSample() / 8);
+      dmaTxTransferComplete = false;
+      HAL_StatusTypeDef hal_status =
+          HAL_SAI_Transmit_DMA(p_hsai_out, txCircBuf.data(), nwords);
+      if (hal_status != HAL_OK) {
+        STM32AudioLogger::instance().errorf(
+            "HAL_SAI_Transmit_DMA (circular start) failed: status=%d",
+            (int)hal_status);
+        return 0;
+      }
+      txCircStarted = true;
+      return size;
     }
-    dmaTxTransferComplete = false;
-    uint32_t nwords = size / (audio->getBitsPerSample() / 8);
-    HAL_StatusTypeDef hal_status =
-        HAL_SAI_Transmit_DMA(p_hsai_out, (uint8_t*)buffer, nwords);
-    if (hal_status != HAL_OK) {
+
+    if (size != txCircHalfBytes) {
       STM32AudioLogger::instance().errorf(
-          "HAL_SAI_Transmit_DMA failed: status=%d, buffer=%p, size=%u, "
-          "nwords=%lu",
-          (int)hal_status, buffer, (unsigned)size, (unsigned long)nwords);
+          "Circular TX chunk size changed (%u -> %u) - not supported once "
+          "started",
+          (unsigned)txCircHalfBytes, (unsigned)size);
       return 0;
     }
-    /// Wait for transfer to complete or timeout
+
+    // Wait for either half to become free (set from
+    // HAL_SAI_TxHalfCpltCallback/HAL_SAI_TxCpltCallback - see
+    // STM32DriverF723.cpp).
     uint32_t start = millis();
     uint32_t timeout = audio->getIOTimoutMs();
-    while (!dmaTxTransferComplete && (millis() - start < timeout));
-    return dmaTxTransferComplete ? size : 0;
+    while (saiTxFreeHalf < 0 && (millis() - start < timeout));
+    if (saiTxFreeHalf < 0) {
+      STM32AudioLogger::instance().errorf(
+          "Circular TX refill timed out after %lums: hsai state=%d, "
+          "HAL error=0x%lX, last SAI error callback=0x%lX",
+          (unsigned long)timeout, (int)p_hsai_out->State,
+          (unsigned long)p_hsai_out->ErrorCode,
+          (unsigned long)saiLastErrorCode);
+      return 0;
+    }
+    memcpy(txCircBuf.data() + ((size_t)saiTxFreeHalf * txCircHalfBytes),
+           buffer, size);
+    saiTxFreeHalf = -1;
+    return size;
   }
 
   /**
@@ -333,6 +387,11 @@ class STM32SAIDriver {
   }
 
  protected:
+  // --- Circular double-buffered TX state (see write() above) ---
+  std::vector<uint8_t> txCircBuf;
+  size_t txCircHalfBytes = 0;
+  bool txCircStarted = false;
+
   DMA_HandleTypeDef dma_out;
   DMA_HandleTypeDef dma_in;
   SAI_HandleTypeDef hsai_a = {};
@@ -371,10 +430,24 @@ class STM32SAIDriver {
     hdma_sai_tx->Init.MemInc = DMA_MINC_ENABLE;
     hdma_sai_tx->Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
     hdma_sai_tx->Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+    // CIRCULAR, double-buffered via the half/full-transfer-complete
+    // callbacks (see writeCircularTx() below) - matches the ST BSP's own
+    // SAIx_Out_Init/BSP_AUDIO_OUT_MspInit exactly (FIFOMode/threshold/burst
+    // included). The previous NORMAL-mode, one-shot-per-chunk approach left
+    // an audible gap at every chunk boundary (SAI DMA request disabled
+    // between the outgoing chunk finishing and the next HAL_SAI_Transmit_DMA
+    // call being issued from software) and turned out to be a genuine cause
+    // of not just gaps but total silence when paired with this codec/board -
+    // CIRCULAR keeps the DMA request continuously active across chunk
+    // boundaries, since the "chunk" being refilled is just one half of an
+    // already-running transfer.
     hdma_sai_tx->Init.Mode = DMA_CIRCULAR;
     hdma_sai_tx->Init.Priority = DMA_PRIORITY_HIGH;
-#ifdef DMA_FIFOMODE_DISABLE
-    hdma_sai_tx->Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+#ifdef DMA_FIFOMODE_ENABLE
+    hdma_sai_tx->Init.FIFOMode = DMA_FIFOMODE_ENABLE;
+    hdma_sai_tx->Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
+    hdma_sai_tx->Init.MemBurst = DMA_MBURST_SINGLE;
+    hdma_sai_tx->Init.PeriphBurst = DMA_PBURST_SINGLE;
 #endif
     __HAL_LINKDMA(p_hsai_out, hdmatx, *hdma_sai_tx);
     HAL_DMA_DeInit(hdma_sai_tx);
@@ -385,7 +458,13 @@ class STM32SAIDriver {
     }
     // Explicitly link the SAI handle to the DMA handle before starting DMA
     p_hsai_out->hdmatx = hdma_sai_tx;
-    HAL_NVIC_SetPriority(config.dma_tx_irq, 0, 0);
+    // Priority 0 is the highest possible on this MCU - non-preemptible by
+    // anything, including SysTick (millis()). If this ISR ever fires faster
+    // than expected (e.g. retriggers immediately), it can starve SysTick
+    // completely, freezing millis() and everything that depends on it -
+    // including write()'s own timeout loop below. A moderate priority still
+    // services audio promptly but leaves SysTick able to run.
+    HAL_NVIC_SetPriority(config.dma_tx_irq, 5, 0);
     HAL_NVIC_EnableIRQ(config.dma_tx_irq);
     return true;
   }
@@ -409,7 +488,9 @@ class STM32SAIDriver {
     hdma_sai_rx->Init.MemInc = DMA_MINC_ENABLE;
     hdma_sai_rx->Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
     hdma_sai_rx->Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-    hdma_sai_rx->Init.Mode = DMA_CIRCULAR;
+    // See the matching note in initDMATx: NORMAL, not CIRCULAR, to match
+    // read()'s fresh-call-per-chunk usage.
+    hdma_sai_rx->Init.Mode = DMA_NORMAL;
     hdma_sai_rx->Init.Priority = DMA_PRIORITY_HIGH;
 #ifdef DMA_FIFOMODE_DISABLE
     hdma_sai_rx->Init.FIFOMode = DMA_FIFOMODE_DISABLE;
@@ -422,7 +503,7 @@ class STM32SAIDriver {
       return false;
     }
     p_hsai_out->hdmarx = hdma_sai_rx;
-    HAL_NVIC_SetPriority(config.dma_rx_irq, 0, 0);
+    HAL_NVIC_SetPriority(config.dma_rx_irq, 5, 0);
     HAL_NVIC_EnableIRQ(config.dma_rx_irq);
 
     return true;
@@ -451,32 +532,103 @@ class STM32SAIDriver {
                                ? (isTx ? SAI_MODEMASTER_TX : SAI_MODEMASTER_RX)
                                : SAI_MODESLAVE_RX;
     hsai->Init.Synchro = SAI_ASYNCHRONOUS;
-    hsai->Init.OutputDrive = SAI_OUTPUTDRIVE_ENABLE;
+    // Matches the ST BSP's SAIx_Out_Init exactly (stm32f723e_discovery_audio.c) -
+    // DISABLE means outputs aren't driven until the first FS edge after
+    // enable, avoiding a glitch; ENABLE was an unverified guess that never
+    // matched the confirmed-working reference.
+    hsai->Init.OutputDrive = SAI_OUTPUTDRIVE_DISABLE;
     hsai->Init.NoDivider = SAI_MASTERDIVIDER_ENABLE;
     hsai->Init.FIFOThreshold = SAI_FIFOTHRESHOLD_1QF;
     hsai->Init.AudioFrequency = mapSampleRate(audio->getSampleRate());
-    hsai->Init.Protocol = (audio->getProtocol() == STM32AudioSAI::I2S)
-                              ? SAI_FREE_PROTOCOL
-                              : SAI_PCM_LONG;
+    // Init.Protocol (SAI_xCR1.PRTCFG) only ever selects between FREE/AC97/
+    // SPDIF hardware-framing modes - it is a different field from the
+    // I2S/PCM/TDM distinction below, which we always implement ourselves via
+    // manual FrameInit/SlotInit (matching how ST's own HAL_SAI_InitProtocol()
+    // helper does it internally, see SAI_InitPCM() etc. in the HAL source).
+    // Previously non-I2S protocols wrote SAI_PCM_LONG (value 3) into this
+    // field, which is not one of PRTCFG's three valid values and left the
+    // register in a reserved state.
+    hsai->Init.Protocol = SAI_FREE_PROTOCOL;
     hsai->Init.DataSize = mapDataSize(audio->getBitsPerSample());
     hsai->Init.FirstBit = SAI_FIRSTBIT_MSB;
     hsai->Init.ClockStrobing = SAI_CLOCKSTROBING_FALLINGEDGE;
-    hsai->FrameInit.FrameLength =
-        audio->getBitsPerSample() * audio->getChannels();
-    hsai->FrameInit.ActiveFrameLength = audio->getBitsPerSample();
-    hsai->FrameInit.FSDefinition = SAI_FS_CHANNEL_IDENTIFICATION;
-    hsai->FrameInit.FSPolarity = SAI_FS_ACTIVE_LOW;
+    // slotCount/activeSlots default to channels/"first N slots" (see
+    // STM32AudioSAI::getSlotCount()/getActiveSlots()), matching every
+    // existing board unchanged - only boards/protocols that explicitly call
+    // setSlotCount()/setActiveSlots() (TDM-wired codecs, e.g. the F723
+    // Discovery's WM8994) get a frame layout different from plain
+    // 1-slot-per-channel.
+    uint8_t slotCount = audio->getSlotCount();
+    hsai->FrameInit.FrameLength = audio->getBitsPerSample() * slotCount;
+    STM32AudioSAI::Protocol proto = audio->getProtocol();
+    if (proto == STM32AudioSAI::TDM || proto == STM32AudioSAI::PCM) {
+      // PCM/TDM framing: single-pulse FS (SAI_FS_STARTFRAME) per frame,
+      // instead of one edge per channel like I2S below - register values
+      // match ST's own HAL_SAI_InitProtocol()/SAI_InitPCM() exactly.
+      // TDM uses the "short frame" 1-bit-clock pulse (SAI_PCM_SHORT), the
+      // wire format every generic multi-channel TDM codec/ADC/DAC expects.
+      // PCM uses the "long frame" pulse (SAI_PCM_LONG): a fixed 13-bit-clock
+      // width regardless of slot count/size, per the classic PCM highway
+      // protocol - not scaled to FrameLength, so it only fits when
+      // FrameLength > 13 (e.g. 16-bit-or-wider slots); narrower/fewer slots
+      // will produce an FS pulse as wide as (or wider than) the frame
+      // itself, which is invalid - use TDM instead for narrow-slot framing.
+      hsai->FrameInit.FSDefinition = SAI_FS_STARTFRAME;
+      hsai->FrameInit.FSPolarity = SAI_FS_ACTIVE_HIGH;
+      if (proto == STM32AudioSAI::TDM) {
+        hsai->FrameInit.ActiveFrameLength = 1;
+      } else {
+        hsai->FrameInit.ActiveFrameLength = 13;
+        if (13 >= hsai->FrameInit.FrameLength) {
+          STM32AudioLogger::instance().errorf(
+              "PCM long-frame FS pulse (13 bit-clocks) doesn't fit in a "
+              "%lu-bit-clock frame (bitsPerSample=%u, slotCount=%u) - use "
+              "TDM protocol instead for narrow/few slots",
+              (unsigned long)hsai->FrameInit.FrameLength,
+              audio->getBitsPerSample(), slotCount);
+        }
+      }
+    } else {
+      // ActiveFrameLength marks the FS/WS active-low duration, which for
+      // I2S-style timing must be half the total frame (left channel bits),
+      // not a single slot's width - only ever matched by coincidence when
+      // slotCount==2 (bitsPerSample == FrameLength/2 in that case), which is
+      // why this was previously hardcoded to bitsPerSample without issue on
+      // 2-slot boards. Matches the ST BSP's SAIx_Out_Init exactly (e.g.
+      // FrameLength=64/ActiveFrameLength=32 for the F723 Discovery's 4-slot
+      // TDM frame). Confirmed via A/B testing that this value has no effect
+      // on the separate WM8994 register-retention issue - that one turned out
+      // to be caused by init() failures being silently swallowed, see
+      // AudioDriverWM8994Class::begin() in arduino-audio-driver.
+      hsai->FrameInit.ActiveFrameLength = hsai->FrameInit.FrameLength / 2;
+      hsai->FrameInit.FSDefinition = SAI_FS_CHANNEL_IDENTIFICATION;
+      hsai->FrameInit.FSPolarity = SAI_FS_ACTIVE_LOW;
+    }
     hsai->FrameInit.FSOffset = SAI_FS_BEFOREFIRSTBIT;
     hsai->SlotInit.FirstBitOffset = 0;
     hsai->SlotInit.SlotSize =
         (audio->getBitsPerSample() == 16) ? SAI_SLOTSIZE_16B : SAI_SLOTSIZE_32B;
-    hsai->SlotInit.SlotNumber = audio->getChannels();
-    hsai->SlotInit.SlotActive = SAI_SLOTACTIVE_0 | SAI_SLOTACTIVE_1;
+    hsai->SlotInit.SlotNumber = slotCount;
+    hsai->SlotInit.SlotActive = audio->getActiveSlots();
     if (HAL_SAI_Init(hsai) != HAL_OK) {
       STM32AudioLogger::instance().error(isTx ? "HAL_SAI_Init (TX) failed"
                                               : "HAL_SAI_Init (RX) failed");
       return false;
     }
+    // Matches the ST BSP's SAIx_Out_Init exactly (stm32f723e_discovery_audio.c),
+    // which enables the block immediately after HAL_SAI_Init instead of
+    // waiting for the first DMA transfer. Without this, SAIEN stays clear
+    // (no MCLK/SCK/FS output at all) until HAL_SAI_Transmit_DMA's own
+    // "enable if not already enabled" logic fires on the *first* data write -
+    // which on this board happens well after begin() returns, i.e. after any
+    // codec bring-up that runs between i2s.begin() and the first write().
+    // The WM8994 derives its internal SYSCLK from this MCLK pin, so its
+    // write-sequencer-driven analog bring-up (headphone output, DC servo,
+    // charge pump, output mixer) has no clock to run on during that entire
+    // window even though every plain register write still ACKs normally -
+    // this was the actual root cause of the "clean I2C/DMA, no sound"
+    // symptom, not the codec driver code itself.
+    __HAL_SAI_ENABLE(hsai);
     return true;
   }
 };

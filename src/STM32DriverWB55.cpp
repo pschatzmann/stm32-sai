@@ -13,32 +13,42 @@
 DMA_HandleTypeDef* hdma_sai_tx = nullptr;
 DMA_HandleTypeDef* hdma_sai_rx = nullptr;
 
+// extern "C" is required here: this is a .cpp file, so without it these
+// definitions get C++ name-mangled and silently fail to override the weak C
+// symbols the startup code's vector table / HAL expect (DMA1_ChannelX_IRQHandler
+// for the NVIC vector table, HAL_SAI_*Callback for HAL's own weak stubs). The
+// mangled definitions still get compiled in as dead code, but the real
+// interrupt vector keeps pointing at the default handler - an infinite
+// self-loop - so once a real SAI TX DMA completion interrupt fires, the CPU
+// freezes there forever. Found via a GDB backtrace on the F723 board hitting
+// this exact bug (same missing extern "C" there); applying the same fix here
+// since WB55 had never actually been hardware-tested either.
+extern "C" {
 
 /// TX DMA IRQ
-
 void DMA1_Channel1_IRQHandler(void) {
-  STM32AudioLogger::instance().debug("DMA1_Channel1_IRQHandler called");
   if (hdma_sai_tx) HAL_DMA_IRQHandler(hdma_sai_tx);
 }
 
 /// RX DMA IRQ
-
 void DMA1_Channel2_IRQHandler(void) {
-  STM32AudioLogger::instance().debug("DMA1_Channel2_IRQHandler called");
   if (hdma_sai_rx) HAL_DMA_IRQHandler(hdma_sai_rx);
 }
 
-/// HAL DMA callbacks (called by HAL_DMA_IRQHandler)
+/// HAL DMA callbacks (called by HAL_DMA_IRQHandler). Don't log/print here -
+/// this runs in ISR context and Serial I/O relies on interrupts that are
+/// prio-blocked while this ISR runs (see the equivalent note in
+/// arduino-audio-tools' I2SDriverSTM32.h).
 void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai) {
   dmaTxTransferComplete = true;
-  STM32AudioLogger::instance().debug("HAL_SAI_TxCpltCallback called: dmaTxTransferComplete set to true");
 }
 
 /// RX DMA IRQ is handled by HAL, so we just set the flag in the callback
 void HAL_SAI_RxCpltCallback(SAI_HandleTypeDef *hsai) {
   dmaRxTransferComplete = true;
-  STM32AudioLogger::instance().debug("HAL_SAI_TxCpltCallback called: dmaTxTransferComplete set to true");
 }
+
+}  // extern "C"
 
 #endif
 

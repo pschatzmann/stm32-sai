@@ -15,7 +15,7 @@ Ths project provides a high level, flexible, robust STM32 SAI audio library for 
 - Robust error handling and diagnostics with singleton `Logger` (log levels, Print output)
 - HAL-based DMA completion and callback handling (no manual IRQ flag logic)
 - Unified, config-driven driver for all supported boards (STM32WB55, STM32H743; easily extendable)
-- I2S, PCM, and Free protocol support
+- I2S, PCM, TDM, and Free protocol support
 - Master/slave, input/output/duplex modes
 - Runtime configuration: sample rate, bits per sample, channels
 - Per-pin port/pin/AF assignment for SAI signals (SCK, FS, SD, MCLK)
@@ -28,6 +28,7 @@ This library currently supports:
 
 - STM32WB55 series
 - STM32H743 series
+- STM32F723E-Discovery (SAI2 pinout for the onboard WM8994 codec; output only for now - RX/duplex needs a second SD-pin slot)
 
 Other STM32 boards with SAI/I2S hardware can be supported by adding a board config and updating the driver config table. Contributions for additional boards are welcome!
 
@@ -63,20 +64,44 @@ void loop() {
 }
 ```
 
+## TDM
+
+For a multi-channel TDM codec/ADC/DAC, set the protocol to `TDM` and the
+channel count to the device's slot count - TDM uses a single-pulse frame
+sync per frame instead of I2S's per-channel toggling FS:
+
+```cpp
+SAI.setProtocol(STM32AudioSAI::TDM);
+SAI.setChannels(8);  // one TDM slot per channel
+```
+
+If the device's frame has more slots than active audio channels (e.g. a
+codec that only uses 2 of its 4 TDM slots), also call `setSlotCount()` and
+`setActiveSlots()` - see `examples/sai_tdm_example`.
+
+`PCM` is the classic PCM highway protocol: same single-pulse frame sync as
+TDM, but a fixed 13-bit-clock pulse width instead of TDM's 1-bit-clock pulse,
+which only fits when the frame is wide enough (`bitsPerSample * slotCount >
+13`). Use `TDM` instead of `PCM` for narrow or few slots.
+
 ## API Overview
 
 - `setSampleRate(uint32_t rate)`
 - `setChannels(uint8_t ch)`
 - `setBitsPerSample(uint8_t bits)`
-- `setProtocol(Protocol p)`
-- `setMode(Mode m)`
+- `setProtocol(Protocol p)` - `Free`, `PCM`, `I2S`, `TDM`
+- `setMode(Mode m)` - `Input`, `Output`, `Duplex`
+- `setMaster(bool m)`
+- `setDataFormat(DataFormat f)` - `Standard`, `LeftJustified`, `RightJustified`
+- `setSlotCount(uint8_t count)` / `setActiveSlots(uint32_t mask)` - TDM frames with more slots than active channels
 - `setPin(PinId id, int8_t port, int8_t pin, int8_t af = -1)`
-- `write(const void* buffer, size_t size)`
-- `read(void* buffer, size_t size)`
+- `write(const uint8_t* buffer, size_t size)`
+- `readBytes(uint8_t* buffer, size_t size)`
 - `setIOTimoutMs(uint32_t ms)`
 - `available()` / `availableForWrite()`
 - `flush()`
 - `isRunning()`
+- `setLogLevel(STM32AudioLogger::Level level)`
 
 ## Error Handling & Logging
 

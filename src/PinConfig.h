@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 /// Datatype for Pins: Use int16_t to allow -1 for "use default"
 using sai_pin_t = int16_t;  

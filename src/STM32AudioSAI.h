@@ -7,6 +7,20 @@
 /// Callback for DMA transfer complete
 extern volatile bool dmaTxTransferComplete;
 extern volatile bool dmaRxTransferComplete;
+/// Set by HAL_SAI_ErrorCallback (see the per-board .cpp files) so a timed-out
+/// write()/read() can report *why* the transfer never completed - previously
+/// any SAI/DMA-level error was silently swallowed by the default weak
+/// HAL_SAI_ErrorCallback stub, and only the generic "still in progress"
+/// symptom on the *next* call ever got logged.
+extern volatile uint32_t saiLastErrorCode;
+/// Incremented in HAL_SAI_TxCpltCallback/HAL_SAI_ErrorCallback (ISR context,
+/// so just a counter bump - no logging there). Read/print these from normal
+/// (non-ISR) code, e.g. periodically from loop(), to tell apart "the DMA IRQ
+/// never fires at all" from "it fires but something after it hangs" from
+/// "it's firing continuously/storming" (which can starve SysTick/millis()
+/// entirely if the IRQ priority is too high, freezing the whole system).
+extern volatile uint32_t saiTxCpltCount;
+extern volatile uint32_t saiTxErrorCount;
 
 /// Generic buffer to support consistent read/write operations
 class Buffer {
@@ -75,14 +89,23 @@ class Buffer {
  * SAI.begin();
  * @endcode
  *
- * @author Peter Schatzmann
+ * @author Phil Schatzmann
  * @copyright MIT License
  */
 
 class STM32AudioSAI : public Stream {
  public:
-  /// Audio protocol types
-  enum Protocol { Free = 0x00, PCM = 0x01, I2S = 0x02 };
+  /// Audio protocol types. PCM and TDM both use a single-pulse frame sync
+  /// (one FS pulse per frame, not one toggle per channel like I2S) but
+  /// differ in pulse width: PCM uses a fixed 13-bit-clock "long frame" pulse
+  /// (classic PCM highway protocol - needs FrameLength > 13, i.e.
+  /// wide-enough/enough slots), TDM uses a 1-bit-clock "short frame" pulse
+  /// (the standard wiring for multi-channel TDM codecs/ADCs/DACs, and the
+  /// one to use when PCM's fixed pulse width doesn't fit). Combine TDM with
+  /// setChannels() (== slot count for a plain N-channel TDM device) or
+  /// setSlotCount()/setActiveSlots() if the device needs more slots than
+  /// active channels.
+  enum Protocol { Free = 0x00, PCM = 0x01, I2S = 0x02, TDM = 0x03 };
 
   /// I2S Audio data format types
   enum DataFormat {
@@ -166,6 +189,26 @@ class STM32AudioSAI : public Stream {
   int8_t getPinAF(PinId id) const;
   /// Check if DMA transfer is complete
   bool isDMATransferComplete() const;
+  /// Override the SAI frame's slot count - only needed when the TDM device
+  /// has more slots in its frame than active audio channels, e.g. the
+  /// STM32F723E-Discovery's WM8994, which needs a 4-slot frame even for
+  /// 2-channel audio. For a plain N-channel TDM device, slot count == channel
+  /// count and this doesn't need to be called. 0 (default) means "use
+  /// getChannels()", matching every board's prior behavior.
+  void setSlotCount(uint8_t count) { slotCount = count; }
+  /// 0 (unset) resolves to channels, preserving existing behavior
+  uint8_t getSlotCount() const { return slotCount == 0 ? channels : slotCount; }
+  /// Override which of the frame's slots actually carry data (SAI_SLOTACTIVE_x
+  /// bitmask) - e.g. only slots 0+2 for the WM8994's headphone-only TDM
+  /// routing. Only needed alongside setSlotCount() when active channels don't
+  /// occupy the first N slots. 0 (default) means "slots 0..channels-1",
+  /// matching every board's prior behavior.
+  void setActiveSlots(uint32_t mask) { activeSlots = mask; }
+  /// 0 (unset) resolves to the first `channels` slots (0b1, 0b11, 0b111, ...)
+  uint32_t getActiveSlots() const {
+    if (activeSlots != 0) return activeSlots;
+    return (1u << channels) - 1u;
+  }
   /// Get the pin configuration for a given PinId
   PinConfig getPinConfig(PinId id) const {
     return pins[static_cast<size_t>(id)];
@@ -184,9 +227,13 @@ class STM32AudioSAI : public Stream {
   uint8_t bitsPerSample = 16;
   uint8_t channels = 2;
   uint32_t ioTimeoutMs = 1000;  ///< IO timeout in milliseconds
+  uint8_t slotCount = 0;        ///< 0 = use channels (see getSlotCount())
+  uint32_t activeSlots = 0;     ///< 0 = use channels (see getActiveSlots())
   PinConfig pins[static_cast<size_t>(PinId::NumPins)];
   Buffer txBuffer{512};
   Buffer rxBuffer{2048};
+  std::vector<uint8_t> rxRawBuffer;  ///< scratch space for TDM slot stripping
+                                      ///< in readBytes() (see .cpp)
 
   bool initSAI();
   void deinitSAI();
