@@ -28,7 +28,7 @@ This library currently supports:
 
 - STM32WB55 series
 - STM32H743 series
-- STM32F723E-Discovery (SAI2 pinout for the onboard WM8994 codec; supports Output, Input, and Duplex - TX and RX are separate SAI blocks/pins)
+- STM32F723 series (default config targets SAI2 on the F723 Discovery; TX/RX use separate SAI blocks, and pin routing can be overridden via `setPin()`/`setPins()`)
 
 Other STM32 boards with SAI/I2S hardware can be supported by adding a board config and updating the driver config table. Contributions for additional boards are welcome!
 
@@ -124,15 +124,6 @@ which only fits when the frame is wide enough (`bitsPerSample * slotCount >
 - Ensure your board supports SAI/I2S hardware
 - Easily extensible for new STM32 variants: add a new board config and update the driver config table
 
-## Input-only microphone example
-
-For a typical I2S microphone (input only), pass `-1` for unused output pins:
-
-```cpp
-SAI.setMode(STM32AudioSAI::Input);
-SAI.setPins(/*bclk*/ PB13, /*ws*/ PB12, /*dout*/ -1, /*din*/ PB14, /*mclk*/ -1);
-SAI.begin();
-```
 
 ## License
 
