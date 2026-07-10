@@ -165,7 +165,7 @@ class STM32SAIDriver {
   bool configureGPIO(STM32AudioSAI* audio) {
     STM32AudioLogger::instance().debug("configureGPIO: Entered");
     static const char* i2sPinNames[static_cast<size_t>(PinId::NumPins)] = {
-        "SCK", "FS", "SD", "MCLK"};
+        "SCK", "FS", "SD", "SD_RX", "MCLK"};
 
     bool success = true;
     for (int i = 0; i < config.numPins; ++i) {

@@ -6,7 +6,7 @@
 Many STM microcontrollers provide the SAI API for Audio Processing.
 This is the most capable and flexible audio peripheral. Supports I2S, PCM, TDM, AC'97, and free protocol modes. Has two semi-independent blocks (Block A / Block B) that can be configured as master/slave or TX/RX pairs. It is available on mid-to-high-end parts (F4, F7, H7, WB55, etc.).
 
-Ths project provides a high level, flexible, robust STM32 SAI audio library for Arduino with DMA, runtime configuration, and strong diagnostics. Now uses a unified, config-driven driver and a simple buffer for audio streaming.
+This project provides a high level, flexible, robust STM32 SAI audio library for Arduino with DMA, runtime configuration, and strong diagnostics. Now uses a unified, config-driven driver and a simple buffer for audio streaming.
 
 ## Features
 
@@ -14,7 +14,7 @@ Ths project provides a high level, flexible, robust STM32 SAI audio library for 
 - Simple, reusable `Buffer` class for audio data management
 - Robust error handling and diagnostics with singleton `Logger` (log levels, Print output)
 - HAL-based DMA completion and callback handling (no manual IRQ flag logic)
-- Unified, config-driven driver for all supported boards (STM32WB55, STM32H743; easily extendable)
+- Unified, config-driven driver for all supported boards (STM32WB55, STM32H743, STM32F723; easily extendable)
 - I2S, PCM, TDM, and Free protocol support
 - Master/slave, input/output/duplex modes
 - Runtime configuration: sample rate, bits per sample, channels
@@ -28,7 +28,7 @@ This library currently supports:
 
 - STM32WB55 series
 - STM32H743 series
-- STM32F723E-Discovery (SAI2 pinout for the onboard WM8994 codec; output only for now - RX/duplex needs a second SD-pin slot)
+- STM32F723E-Discovery (SAI2 pinout for the onboard WM8994 codec; supports Output, Input, and Duplex - TX and RX are separate SAI blocks/pins)
 
 Other STM32 boards with SAI/I2S hardware can be supported by adding a board config and updating the driver config table. Contributions for additional boards are welcome!
 
@@ -50,7 +50,7 @@ void setup() {
   SAI.setProtocol(STM32AudioSAI::I2S);
   SAI.setPin(STM32AudioSAI::SCK, 'B', 3, 6); // Port B, Pin 3, AF6
   if (!SAI.begin()) {
-    Logger::instance().error("SAI initialization failed!");
+    STM32AudioLogger::instance().error("SAI initialization failed!");
     while (1); // Halt on error
   }
 }
@@ -60,7 +60,7 @@ void loop() {
   // Example: write audio data
   // SAI.write(buffer, size);
   // Example: read audio data
-  // SAI.read(buffer, size);
+  // SAI.readBytes(buffer, size);
 }
 ```
 

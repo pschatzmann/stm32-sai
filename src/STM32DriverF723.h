@@ -10,19 +10,18 @@
 
 // Pin configuration for the STM32F723E-Discovery's WM8994 codec on SAI2.
 // Matches the ST BSP (stm32f723e_discovery_audio.h): Block A = TX/out on
-// PI4 (MCLK)/PI5 (SCK)/PI6 (SD)/PI7 (FS), all AF10 (GPIO_AF10_SAI2). Block
-// B = RX/in, SD on PG10 - not listed here since this library's PinConfig
-// only has one SD slot (see PinId in PinConfig.h), so only output mode is
-// supported until that's extended with a separate RX-data PinId.
-static const PinConfig F723_SAI_PINS[4] = {
-    {'I', 5, 10},  // SCK
-    {'I', 7, 10},  // FS
-    {'I', 6, 10},  // SD (TX/out)
-    {'I', 4, 10}   // MCLK
+// PI4 (MCLK)/PI5 (SCK)/PI6 (SD)/PI7 (FS); Block B = RX/in, SD on PG10.
+// All AF10 (GPIO_AF10_SAI2).
+static const PinConfig F723_SAI_PINS[5] = {
+    {'I', 5, 10},   // SCK
+    {'I', 7, 10},   // FS
+    {'I', 6, 10},   // SD (TX/out)
+    {'G', 10, 10},  // SD_RX (RX/in, Block B)
+    {'I', 4, 10}    // MCLK
 };
 
-/// Board-specific driver config for the STM32F723E-Discovery (SAI2, output
-/// only - see the PinConfig note above for why RX/duplex isn't wired up).
+/// Board-specific driver config for the STM32F723E-Discovery (SAI2, TX and
+/// RX on separate blocks/pins - supports Output, Input, and Duplex modes).
 /// enableSAIClocks below picks the right PLLI2S profile per sample-rate
 /// family, matching the ST BSP.
 /// const gives this internal linkage per translation unit (C++ default for

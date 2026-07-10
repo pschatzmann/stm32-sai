@@ -1,8 +1,15 @@
 #include <STM32AudioSAI.h>
 
+// Example: simultaneous audio in + out (e.g. a passthrough/echo effect).
+// On boards where TX and RX are separate SAI blocks with separate data pins
+// (e.g. the STM32F723E-Discovery's SAI2 Block A/Block B), begin() wires up
+// both directions automatically - no extra pin setup needed.
+
+uint8_t inBuffer[1024];
+
 void setup() {
   Serial.begin(115200);
-  while(!Serial);
+  while (!Serial);
 
   SAI.setMode(STM32AudioSAI::Duplex);
   SAI.setSampleRate(44100);
@@ -11,7 +18,7 @@ void setup() {
   SAI.setProtocol(STM32AudioSAI::I2S);
   SAI.setMaster(true);
   SAI.setDataFormat(STM32AudioSAI::Standard);
-  SAI.configureGPIO();
+
   if (SAI.begin()) {
     Serial.println("SAI audio duplex started");
   } else {
@@ -20,10 +27,9 @@ void setup() {
 }
 
 void loop() {
-  // Example: duplex audio (read and write)
-  uint16_t inBuffer[256];
-  uint16_t outBuffer[256];
-  size_t byte_count = SAI.read(inBuffer, sizeof(inBuffer));
-  // Process inBuffer...
-  SAI.write(outBuffer, byte_count);
+  // Example: read audio in, then write it straight back out (passthrough)
+  size_t byte_count = SAI.readBytes(inBuffer, sizeof(inBuffer));
+  if (byte_count > 0) {
+    SAI.write(inBuffer, byte_count);
+  }
 }

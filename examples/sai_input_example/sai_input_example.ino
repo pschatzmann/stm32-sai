@@ -1,7 +1,5 @@
 #include <STM32AudioSAI.h>
 
-STM32AudioSAI I2S;
-
 void setup() {
   Serial.begin(115200);
   while(!Serial);
@@ -23,8 +21,8 @@ void setup() {
 
 void loop() {
   // Example: read audio data
-  uint16_t buffer[256];
-  size_t result = SAI.read(buffer, sizeof(buffer));
+  int16_t buffer[256];
+  size_t result = SAI.readBytes((uint8_t*)buffer, sizeof(buffer));
   // Print all samples to Serial
   for (size_t i = 0; i < result / sizeof(int16_t); i+=2) {
     Serial.print(buffer[i]);

@@ -8,11 +8,17 @@
 
 #define SAI_SUPPORT 1
 
-/// Pin configuration for STM32H743 SAI1 Block A
-static const PinConfig h743Pins[4] = {
+/// Pin configuration for STM32H743 SAI1 Block A (TX) / Block B (RX).
+/// SCK/FS/SD/MCLK (Block A) are the library's original, previously TX-only
+/// pins. SD_RX (Block B) is a BEST-EFFORT PLACEHOLDER, not verified against
+/// any datasheet/schematic/reference board - confirm against your board
+/// before relying on Input/Duplex mode, and override with
+/// setPin(STM32AudioSAI::SD_RX, ...) if it's wrong.
+static const PinConfig h743Pins[5] = {
     {'E', 2, 6},  // SCK
     {'E', 3, 6},  // FS
-    {'E', 4, 6},  // SD
+    {'E', 4, 6},  // SD (TX/out, Block A)
+    {'E', 5, 6},  // SD_RX (RX/in, Block B) - UNVERIFIED, see note above
     {'E', 6, 6}   // MCLK
 };
 
