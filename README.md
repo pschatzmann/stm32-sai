@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://mit-license.org/)
 
 Many STM microcontrollers provide the SAI API for Audio Processing.
-This is the most capable and flexible audio peripheral. Supports I2S, PCM, TDM, AC'97, and free protocol modes. Has two semi-independent blocks (Block A / Block B) that can be configured as master/slave or TX/RX pairs. It is available on mid-to-high-end parts (F4, F7, H7, WB55, etc.).
+This is the most capable and flexible audio peripheral. Supports I2S, PCM, TDM, AC'97, and free protocol modes. It has two semi-independent blocks (Block A / Block B) that can be configured as master/slave or TX/RX pairs and it is available on mid-to-high-end parts (F4, F7, H7, WB55, etc.).
 
 This project provides a high level, flexible, robust STM32 SAI audio library for Arduino with DMA, runtime configuration, and strong diagnostics. Now uses a unified, config-driven driver and a simple buffer for audio streaming.
 
