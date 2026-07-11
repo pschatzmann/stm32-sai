@@ -7,6 +7,7 @@
 #include "stm32f7xx_hal.h"
 #include "stm32f7xx_hal_sai.h"
 #include "stm32f7xx_hal_dma.h"
+#include <string.h>
 
 // Global DMA handles for SAI2 Block A (TX) / Block B (RX) - needed for the
 // HAL IRQ handlers below, mirrors the WB55 driver's pattern.
@@ -42,6 +43,9 @@ void DMA2_Stream6_IRQHandler(void) {
 /// transmitting (DMA is now sending the second half) - the first half is
 /// free for write() to refill with the next chunk.
 void HAL_SAI_TxHalfCpltCallback(SAI_HandleTypeDef *hsai) {
+  if (saiTxCircBufPtr && saiTxCircHalfBytes) {
+    memset(saiTxCircBufPtr, 0, saiTxCircHalfBytes);
+  }
   saiTxFreeHalf = 0;
 }
 
@@ -49,6 +53,9 @@ void HAL_SAI_TxHalfCpltCallback(SAI_HandleTypeDef *hsai) {
 /// transmitting (DMA has wrapped back to the start, re-sending the first
 /// half) - the second half is free for write() to refill.
 void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai) {
+  if (saiTxCircBufPtr && saiTxCircHalfBytes) {
+    memset(saiTxCircBufPtr + saiTxCircHalfBytes, 0, saiTxCircHalfBytes);
+  }
   saiTxFreeHalf = 1;
   dmaTxTransferComplete = true;
   saiTxCpltCount++;

@@ -8,6 +8,7 @@
 #include "stm32h7xx_hal.h"
 #include "stm32h7xx_hal_sai.h"
 #include "stm32h7xx_hal_dma.h"
+#include <string.h>
 
 // Global DMA handles for SAI1 Block A (TX) / Block B (RX) - needed for the
 // HAL IRQ handlers below. STM32Driver.h/STM32AudioSAI.cpp declare/reference
@@ -51,12 +52,18 @@ void DMA2_Stream1_IRQHandler(void) {
 /// driver had it), so TX (and therefore Duplex) never actually worked past
 /// the first chunk on this board.
 void HAL_SAI_TxHalfCpltCallback(SAI_HandleTypeDef *hsai) {
+  if (saiTxCircBufPtr && saiTxCircHalfBytes) {
+    memset(saiTxCircBufPtr, 0, saiTxCircHalfBytes);
+  }
   saiTxFreeHalf = 0;
 }
 
 /// Fires when the second half completes (DMA wraps back to the start) -
 /// that half is now free for write() to refill.
 void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai) {
+  if (saiTxCircBufPtr && saiTxCircHalfBytes) {
+    memset(saiTxCircBufPtr + saiTxCircHalfBytes, 0, saiTxCircHalfBytes);
+  }
   saiTxFreeHalf = 1;
   dmaTxTransferComplete = true;
 }

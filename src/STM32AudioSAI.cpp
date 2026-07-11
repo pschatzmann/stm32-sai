@@ -17,6 +17,8 @@ volatile uint32_t saiLastErrorCode = 0;
 volatile uint32_t saiTxCpltCount = 0;
 volatile uint32_t saiTxErrorCount = 0;
 volatile int8_t saiTxFreeHalf = -1;
+uint8_t* saiTxCircBufPtr = nullptr;
+volatile size_t saiTxCircHalfBytes = 0;
 
 // RingBuffer instances are now members of STM32AudioSAI
 

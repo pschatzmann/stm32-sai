@@ -21,6 +21,11 @@ extern volatile uint32_t saiLastErrorCode;
 /// entirely if the IRQ priority is too high, freezing the whole system).
 extern volatile uint32_t saiTxCpltCount;
 extern volatile uint32_t saiTxErrorCount;
+/// Active circular TX buffer information (set by STM32SAIDriver::write() on
+/// first circular start). Board IRQ callbacks use this to zero a newly-freed
+/// half immediately so missed refills output silence instead of stale audio.
+extern uint8_t* saiTxCircBufPtr;
+extern volatile size_t saiTxCircHalfBytes;
 
 /// Generic buffer to support consistent read/write operations
 class Buffer {

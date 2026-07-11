@@ -141,6 +141,8 @@ class STM32SAIDriver {
    */
   void deinitDMA() {
     STM32AudioLogger::instance().debug("deinitDMA: Entered");
+    saiTxCircBufPtr = nullptr;
+    saiTxCircHalfBytes = 0;
     if (HAL_DMA_DeInit(hdma_sai_tx) != HAL_OK) {
       STM32AudioLogger::instance().error("HAL_DMA_DeInit failed");
     }
@@ -300,6 +302,8 @@ class STM32SAIDriver {
       // transfer.
       txCircHalfBytes = size;
       txCircBuf.assign(size * 2, 0);
+      saiTxCircBufPtr = txCircBuf.data();
+      saiTxCircHalfBytes = txCircHalfBytes;
       memcpy(txCircBuf.data(), buffer, size);
       memcpy(txCircBuf.data() + size, buffer, size);
       saiTxFreeHalf = -1;
