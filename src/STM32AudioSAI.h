@@ -81,14 +81,6 @@ class Buffer {
  * - Double-buffered DMA for efficient audio streaming
  * - Compatible with Arduino Stream/Print API for easy integration
  *
- * Example usage:
- * @code
- * SAI.setSampleRate(48000);
- * SAI.setChannels(2);
- * SAI.setPins(/*bclk*/ PB13, /*ws*/ PB12, /*dout*/ PB15, /*din*/ -1, /*mclk*/ -1);
- * SAI.begin();
- * @endcode
- *
  * @author Phil Schatzmann
  * @copyright MIT License
  */
